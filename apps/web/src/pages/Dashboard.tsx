@@ -3,6 +3,20 @@ import { CreateModal, RecipeModal } from "../components/RecipieModal";
 import type { Recipe, RecipeFormData, RecipeListItem } from "../types/recipies";
 import logger from "../utils/logger";
 
+function DeleteButton({ onClick }: { onClick: () => Promise<void> | void }) {
+  return (
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+    >
+      <div>Delete</div>
+    </button>
+  );
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,12 +139,43 @@ export default function Dashboard() {
     setShowCreateModal(false);
   };
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-red-500">
-        <div className="text-xl">{error}</div>
-      </div>
-    );
+  async function handleDeleteRecipe(recipeId: string) {
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/recipies/${recipeId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!res.ok) {
+        const errorBody = await res.json(); // or res.text() if not JSON
+        logger.error("API error on delete:", res.status, errorBody);
+        throw new Error("Failed to delete recipe!");
+      }
+
+      setRecipes((prev) => prev.filter((r) => r.id !== recipeId));
+      setSelectedRecipe(null);
+      logger.log("Recipe deleted successfully:", { recipeId });
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
+    }
+
+    if (error) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-red-500">
+          <div className="text-xl">{error}</div>
+        </div>
+      );
+    }
   }
 
   return (
@@ -153,17 +198,16 @@ export default function Dashboard() {
         </div>
         {recipes.length > 0 &&
           recipes.map((recipe) => (
-            <button
+            <div
               key={recipe.id}
-              className="w-full text-left"
-              onClick={(e) => {
-                e.preventDefault();
-                fetchRecipieInfo(recipe.id);
-              }}
+              className="relative mt-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
             >
-              <div
-                key={recipe.id}
-                className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4"
+              <button
+                className="w-full text-left"
+                onClick={(e) => {
+                  e.preventDefault();
+                  fetchRecipieInfo(recipe.id);
+                }}
               >
                 <h2 className="text-2xl font-bold text-red-500">
                   {recipe.title}
@@ -171,8 +215,14 @@ export default function Dashboard() {
                 {recipe.description && (
                   <p className="mt-2 text-gray-400">{recipe.description}</p>
                 )}
-              </div>
-            </button>
+              </button>
+
+              <DeleteButton
+                onClick={() => {
+                  handleDeleteRecipe(recipe.id);
+                }}
+              />
+            </div>
           ))}
       </div>
 

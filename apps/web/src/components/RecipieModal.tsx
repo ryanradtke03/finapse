@@ -444,7 +444,7 @@ export function CreateModal({
             {formData.ingredients.map((ing, i) => (
               <div key={i} className="flex gap-2 items-center mb-2">
                 <input
-                  className="flex-[2] px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  className="flex-2 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                   placeholder="Name (e.g. Chicken Breast)"
                   value={ing.name}
                   onChange={(e) => updateIngredient(i, "name", e.target.value)}
