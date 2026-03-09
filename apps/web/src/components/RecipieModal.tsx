@@ -83,16 +83,36 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   );
 }
 
-export function RecipeModal({ recipe, onClose }: RecipeModalProps) {
+export function RecipeModal({
+  recipe,
+  submitFunction,
+  onClose,
+}: RecipeModalProps & {
+  submitFunction: (updatedRecipe: RecipeFormData) => Promise<void>;
+}) {
   const [activeTab, setActiveTab] = useState<"ingredients" | "steps">(
     "ingredients",
   );
+  const [showModal, setshowModal] = useState(false);
 
   const totalTime = (recipe?.prepTimeMin ?? 0) + (recipe?.cookTimeMin ?? 0);
 
   return (
     <Modal isOpen={!!recipe} onClose={onClose} title={recipe?.title}>
+      {showModal && (
+        <CreateModal
+          onSubmit={submitFunction} // Placeholder, implement update logic here
+          onClose={() => setshowModal(false)}
+        />
+      )}
       {/* Stats row */}
+      <button
+        onClick={() => setshowModal(true)}
+        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        Update
+      </button>
+
       <div className="flex gap-2 mb-5">
         {[
           { label: "Servings", value: recipe?.servings, icon: "🍽️" },

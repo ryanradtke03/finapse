@@ -178,6 +178,56 @@ export default function Dashboard() {
     }
   }
 
+  const handleUpdateRecipie = async (updatedRecipe: RecipeFormData) => {
+    logger.log("Updating recipe with data:", updatedRecipe);
+    logger.log("Recipie Id:", selectedRecipe?.id);
+
+    if (!selectedRecipe) {
+      setError("No recipe selected for update");
+      return;
+    }
+
+    const payload = {
+      ...updatedRecipe,
+      steps: updatedRecipe.steps.map((step, i) => ({ ...step, order: i + 1 })),
+    };
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/recipies/${selectedRecipe.id}`,
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!res.ok) {
+        const errorBody = await res.json(); // or res.text() if not JSON
+        logger.error("API error on update:", res.status, errorBody);
+        throw new Error("Failed to update recipe!");
+      }
+
+      const data: Recipe = await res.json();
+      logger.log("Recipe updated successfully:", { data });
+
+      setRecipes((prev) =>
+        prev.map((r) => (r.id === selectedRecipe.id ? data : r)),
+      );
+
+      setShowCreateModal(false);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong");
+      }
+    }
+  };
+
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 p-8">
       <div className="text-4xl font-bold text-center mb-5 text-white">
@@ -235,6 +285,7 @@ export default function Dashboard() {
 
       <RecipeModal
         recipe={selectedRecipe}
+        submitFunction={handleUpdateRecipie}
         onClose={() => setSelectedRecipe(null)}
       />
     </main>
