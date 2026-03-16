@@ -1,1 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --font-display: "Playfair Display", serif;
+  --font-sans: "DM Sans", sans-serif;
+
+  --color-brand-bg: #111210;
+  --color-brand-surface: #1a1b18;
+  --color-brand-green: #86b358;
+  --color-brand-green-hover: #94c462;
+  --color-brand-text: #e8e5de;
+  --color-brand-input: #1f2019;
+  --color-brand-muted: rgba(232, 229, 222, 0.4);
+  --color-brand-hint: rgba(232, 229, 222, 0.2);
+  --color-brand-border: rgba(255, 255, 255, 0.08);
+
+  --color-brand-error: #f87171;
+  --color-brand-error-border: rgba(248, 113, 113, 0.4);
+  --color-brand-error-bg: rgba(248, 113, 113, 0.05);
+}
