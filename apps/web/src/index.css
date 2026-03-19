@@ -19,3 +19,16 @@
   --color-brand-error-border: rgba(248, 113, 113, 0.4);
   --color-brand-error-bg: rgba(248, 113, 113, 0.05);
 }
+
+/* autofill fix */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #1f2019 inset;
+  -webkit-text-fill-color: #e8e5de;
+  caret-color: #e8e5de;
+  border: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  transition: none !important;
+}
