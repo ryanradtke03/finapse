@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, register } from "../api/auth";
+import { googleAuthUrl, login, register } from "../api/auth";
 import { loginSchema, signupSchema } from "../schemas/auth";
 import logger from "../utils/logger";
 
@@ -334,6 +334,25 @@ function SignupForm() {
 
 export function LandingPageCard() {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
+  const [googleError, setGoogleError] = useState("");
+
+  const handleGoogleAuth = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    setGoogleError("");
+  
+    try {
+      window.location.href = googleAuthUrl;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        logger.error("Google Auth failed:", { error: error.message });
+        setGoogleError(error.message);
+      } else {
+        const gError = error as { error: string };
+        logger.error("Google Auth failed:", { error: gError.error });
+        setGoogleError(gError.error ?? "Something went wrong");
+      }
+    }
+  };
 
   return (
     <div
@@ -402,10 +421,15 @@ export function LandingPageCard() {
         {activeTab === "login" ? <LoginForm /> : <SignupForm />}
         <div></div>
         {/* Google Login */}
-        <div className="flex justify-center">
-          <button onClick={() => {logger.debug("Clicked Google Button")}} className="block text-sm font-medium mb-1 text-brand-hint">
+        <div className="flex flex-col items-center">
+          <button onClick={handleGoogleAuth} className="block text-sm font-medium mb-1 text-brand-hint">
             Login Via Google
           </button>
+          {googleError && 
+          <p className="text-sm mt-1 text-brand-error">
+            {googleError}
+          </p>
+          }
         </div>
       </div>
     </div>

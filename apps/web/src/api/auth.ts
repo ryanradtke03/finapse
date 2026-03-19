@@ -35,3 +35,5 @@ export const register = async(email: string, password: string) => {
     return res;
 
 }
+
+export const googleAuthUrl = `${apiBaseUrl}/auth/google`;
