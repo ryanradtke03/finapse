@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../api/auth";
-import { loginSchema } from "../schemas/auth";
+import { login, register } from "../api/auth";
+import { loginSchema, signupSchema } from "../schemas/auth";
 import logger from "../utils/logger";
 
 
@@ -41,12 +41,12 @@ function LoginForm() {
     }
 
     // Make call to endpoint 
-    logger.debug("Make call to endpoint");
+    logger.debug("Make call to login endpoint");
     try{
       const res = await login(email, password);
       logger.debug("Res:", {res: await res.json()});
 
-      navigate("/dashboard");
+      navigate("/Dashboard");
       
 
     }catch(error: unknown){
@@ -157,10 +157,77 @@ function LoginForm() {
 }
 
 function SignupForm() {
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+  const [registerError, setRegisterError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+
+    e.preventDefault();
+
+    // Clear errors
+    setEmailError("");
+    setPasswordError("");
+    setConfirmPasswordError("");
+    setRegisterError("");
+
+    // Zod Validation
+    const result = signupSchema.safeParse({email, password, confirmPassword});
+
+    // Handle Form Error 
+    if(!result.success){
+      const errors = result.error.flatten().fieldErrors;
+      if (errors.email) setEmailError(errors.email[0]);
+      if (errors.password) setPasswordError(errors.password[0]);
+      if (errors.confirmPassword) setConfirmPasswordError(errors.confirmPassword[0])
+
+      logger.warn("Invalid Credentials: ", {
+        ...(emailError && {email : emailError}),
+        ...(passwordError && {password: passwordError}),
+        ...(confirmPasswordError && {confirmPassword: confirmPassword}),
+      })
+
+      return;
+    }
+
+     // Make call to endpoint 
+     logger.debug("Make call to register endpoint");
+     try{
+       const res = await register(email, password);
+       logger.debug("Res:", {res: await res.json()});
+ 
+       navigate("/Dashboard");
+       
+ 
+     }catch(error: unknown){
+       if(error instanceof Error){
+         logger.error("Register failed:", {error: error.message});
+         setRegisterError(error.message);
+       } else{
+         const apiError = error as {error: string};
+         logger.error("Register failed:", {error: apiError.error})
+         setRegisterError(apiError.error ?? "Something went wrong");
+       }
+     }
+
+  }
+
   return (
-    <form className="flex flex-col gap-4 py-2 w-full">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2 w-full">
       {/* Email*/}
       <div className="w-full">
+      {registerError && 
+          <p className="text-sm mt-1 text-brand-error">
+            {registerError}
+          </p>
+          }
         <label className="block text-sm font-medium mb-1 text-brand-hint">
           Email
         </label>
@@ -179,6 +246,8 @@ function SignupForm() {
                 "
           type="email"
           placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
       </div>
       {/* Password */}
@@ -201,7 +270,14 @@ function SignupForm() {
               "
           type="password"
           placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
+         {passwordError && 
+          <p className="text-sm mt-1 text-brand-error">
+            {passwordError}
+          </p>
+          }
       </div>
       {/* Confirm Password */}
       <div className="w-full">
@@ -223,7 +299,14 @@ function SignupForm() {
               "
           type="password"
           placeholder="Password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
         />
+         {confirmPasswordError && 
+          <p className="text-sm mt-1 text-brand-error">
+            {confirmPasswordError}
+          </p>
+          }
       </div>
       {/* Submit Button */}
       <div className="flex justify-center py-2">

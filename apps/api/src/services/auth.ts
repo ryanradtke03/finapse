@@ -12,7 +12,7 @@ export async function registerUser(data: { email: string; password: string }) {
   });
 
   if (existingUser) {
-    throw new Error("User already exists");
+    throw Object.assign(new Error("Email already in use"), { status: 409 });
   }
 
   const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
