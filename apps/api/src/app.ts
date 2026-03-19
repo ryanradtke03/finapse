@@ -1,6 +1,8 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import passport from "passport";
+import "./auth/googleStrategy";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFound } from "./middleware/notFound";
 import authRoutes from "./routes/auth";
@@ -23,6 +25,7 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser());
 
+  app.use(passport.initialize());
   app.use(healthRouter);
   app.use("/recipies", recipiesRouter);
   app.use("/auth", authRoutes);
