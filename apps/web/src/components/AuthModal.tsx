@@ -4,7 +4,16 @@ import { googleAuthUrl, login, register } from "../api/auth";
 import { loginSchema, signupSchema } from "../schemas/auth";
 import logger from "../utils/logger";
 
+export function AuthModal({open, onClose}: {open: boolean, onClose: () => void}){
+  if(!open) return null;
 
+  return(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <LandingPageCard/>
+      <button onClick={onClose}>Close</button>
+    </div>
+  )
+}
 
 function LoginForm() {
   const navigate = useNavigate();
@@ -332,7 +341,7 @@ function SignupForm() {
   );
 }
 
-export function LandingPageCard() {
+function LandingPageCard() {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
   const [googleError, setGoogleError] = useState("");
 
@@ -361,7 +370,7 @@ export function LandingPageCard() {
           bg-brand-surface
           border border-brand-border
           rounded-2xl
-          shadow-xl
+          shadow-2xl
           p-6
           "
     >

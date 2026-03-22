@@ -1,33 +1,61 @@
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Playfair Display", serif;
-  --font-sans: "DM Sans", sans-serif;
+  --font-sans: "Sora", sans-serif;
+  --font-display: "Sora", sans-serif;
 
-  --color-brand-bg: #111210;
-  --color-brand-surface: #1a1b18;
-  --color-brand-green: #86b358;
-  --color-brand-green-hover: #94c462;
-  --color-brand-text: #e8e5de;
-  --color-brand-input: #1f2019;
-  --color-brand-muted: rgba(232, 229, 222, 0.4);
-  --color-brand-hint: rgba(232, 229, 222, 0.2);
-  --color-brand-border: rgba(255, 255, 255, 0.08);
+  /* Core backgrounds */
+  --color-brand-bg: #0b0b0b;
+  --color-brand-surface: #111111;
+  --color-brand-surface-raised: #141414;
 
-  --color-brand-error: #f87171;
-  --color-brand-error-border: rgba(248, 113, 113, 0.4);
-  --color-brand-error-bg: rgba(248, 113, 113, 0.05);
+  /* Green accent */
+  --color-brand-green: #5fd93a;
+  --color-brand-green-hover: #6ee04f;
+  --color-brand-green-muted: rgba(95, 217, 58, 0.08);
+  --color-brand-green-border: rgba(95, 217, 58, 0.2);
+
+  /* Pill */
+  --color-brand-pill-bg: rgba(95, 217, 58, 0.08);
+  --color-brand-pill-border: rgba(95, 217, 58, 0.25);
+  --color-brand-pill-text: #5fd93a;
+
+  /* Text */
+  --color-brand-text: #f0f0f0;
+  --color-brand-text-secondary: #555555;
+  --color-brand-text-hint: #333333;
+
+  /* Inputs */
+  --color-brand-input: #0b0b0b;
+
+  /* Borders */
+  --color-brand-border: rgba(255, 255, 255, 0.06);
+  --color-brand-border-subtle: rgba(255, 255, 255, 0.10);
+
+  /* Semantic */
+  --color-brand-error: #e24b4a;
+  --color-brand-error-border: rgba(226, 75, 74, 0.35);
+  --color-brand-error-bg: rgba(226, 75, 74, 0.05);
+
+  --color-brand-warning: #ef9f27;
+  --color-brand-success: #5fd93a;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
 }
 
 /* autofill fix */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px #1f2019 inset;
-  -webkit-text-fill-color: #e8e5de;
-  caret-color: #e8e5de;
-  border: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+  -webkit-box-shadow: 0 0 0px 1000px #0b0b0b inset;
+  -webkit-text-fill-color: #f0f0f0;
+  caret-color: #f0f0f0;
+  border: 0.5px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 8px !important;
   outline: none !important;
   transition: none !important;
