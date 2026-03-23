@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AuthModal } from "../components/AuthModal";
+import { FullLogo, LogoText } from "../components/Logo";
 
 const NAV_LINKS = ["Features", "Pricing", "Blog", "About"]
 const FOOTER_LINKS = ["Privacy", "Terms", "Contact"]
@@ -98,14 +99,6 @@ function NavLink({ label, onClick }: { label: string, onClick?: () => void }) {
   )
 }
 
-function LogoText(){
-  return(
-    <span className="text-brand-text font-extrabold text-lg">
-      Fin<span className="text-brand-green">apse</span>
-    </span>  
-  )
-}
-
 function Preview(){
   return(
     <div className="w-full max-w-4xl rounded-2xl border border-[--color-brand-border-subtle] overflow-hidden">
@@ -164,7 +157,7 @@ function StatCard({stat, description} : {stat: string, description: string}){
 
 export default function Landing() {
   const [open, setOpen] = useState(false)
-
+  const [defaultTab, setDefaultTab] = useState<"login" | "signup">("login");
 
   return(
     <main className={`
@@ -177,16 +170,7 @@ export default function Landing() {
       <header className="sticky top-0 z-50 border-b border-brand-border-subtle px-8 py-4 backdrop-blur-sm bg-brand-bg/80">
         <div className="grid grid-cols-[1fr_2fr_1fr]">
           {/** Logo */}
-          <div className="flex items-center gap-3 pl-4">
-            
-            <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#0b1a06" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 10L5.5 6.5L8 9L12 4"/>
-            </svg>
-            </div>
-            
-            <LogoText/>
-          </div>
+          <FullLogo/>
           {/** Nav Buttons */}
           <div className="flex items-center justify-between pr-24">
             {NAV_LINKS.map((link) => (
@@ -195,7 +179,7 @@ export default function Landing() {
           </div>
           {/** Launch Buttons */}
           <div className="flex items-center justify-center gap-6">
-            <button onClick={() => setOpen(true)}
+            <button onClick={() => {setDefaultTab("login"); setOpen(true)}}
               className={`
               text-md
               text-brand-text
@@ -207,7 +191,7 @@ export default function Landing() {
               Log in
             </button>
             <button 
-            onClick={() => setOpen(true)}
+            onClick={() => {setDefaultTab("signup"); setOpen(true)}}
             className={`
             text-md
             text-brand-bg
@@ -251,7 +235,7 @@ export default function Landing() {
           </div>
           <div className="flex flex-row items-center gap-4">
             <button 
-                onClick={() => setOpen(true)}
+                onClick={() => {setDefaultTab("signup"); setOpen(true)}}
                 className={`
                 text-brand-text
                 text-sm font-semibold
@@ -338,7 +322,7 @@ export default function Landing() {
           <h3 className="text-brand-text font-semibold tracking-light text-3xl">Ready to take control?</h3>
           <p className="pt-2 text-brand-text-secondary text-md">Free to start. No credit required</p>
           <div className="p-4 flex flex-row items-center gap-4">
-            <button onClick={() => setOpen(true)} 
+            <button onClick={() => {setDefaultTab("signup"); setOpen(true)}} 
               className={`
                 text-brand-text
                 text-sm font-semibold
@@ -349,7 +333,7 @@ export default function Landing() {
               `}>
               Create your account
             </button>
-            <button onClick={() => setOpen(true)} 
+            <button onClick={() => {setDefaultTab("login"); setOpen(true) }} 
               className={`
                 text-brand-text
                 text-sm font-semibold
@@ -363,9 +347,6 @@ export default function Landing() {
           </div>
         </div>
 
-        {/** Auth Modal */}
-        <AuthModal open={open} onClose={() => setOpen(false)}/>
-        
       </div>
 
       {/** Footer */}
@@ -389,72 +370,11 @@ export default function Landing() {
         </div>
       </footer>
 
+      {/** Auth Modal */}
+      <AuthModal open={open} onClose={() => setOpen(false)} defaultTab={defaultTab}/>
+        
     </main>
   )
 
-  // return (
-  //   <main className="min-h-screen bg-brand-bg text-brand-text grid grid-rows-[auto_1fr_auto]">
-  //     <header className="border-b border-brand-border px-8 py-4">
-  //       <div className="grid grid-cols-[1fr_2fr]">
-  //         <div className="flex items-center gap-3">
-  //           <div className="w-8 h-8 bg-brand-green rounded-lg">
-  //             {/** Logo Here */}
-  //           </div>
-  //           <span className="text-brand-text font-medium text-lg">
-  //             Fin<span className="text-brand-green">apse</span>
-  //           </span>
-  //         </div>
-  //           <div className="flex-1 flex justify-center gap-12">
-  //             <button className={`
-  //             text-brand-text 
-  //               border-2 border-brand-border
-  //               rounded-xl px-6 py-2 cursor-pointer
-  //               transition-all duration-200
-  //               hover:bg-brand-green-hover
-  //               `}>
-  //               Features
-  //             </button>
-  //             <button className={`
-  //               text-brand-text 
-  //               border-2 border-brand-border
-  //               rounded-xl px-6 py-2 cursor-pointer
-  //               transition-all duration-200
-  //               hover:bg-brand-green-hover
-  //               `}>
-  //               Pricing
-  //             </button>
-  //             <button className={`
-  //               text-brand-text
-  //               border-2 border-brand-border
-  //               rounded-xl px-6 py-2 cursor-pointer
-  //               transition-all duration-200
-  //               hover:bg-brand-green-hover
-  //               `}>
-  //               Blog
-  //             </button>
-  //             <button className={`
-  //               text-brand-text
-  //               border-2 border-brand-border
-  //               rounded-xl px-6 py-2 cursor-pointer
-  //               transition-all duration-200
-  //               hover:bg-brand-green-hover
-  //               `}>
-  //               About
-  //             </button>
-  //           </div>
-  //       </div>
-  //     </header>
-  //     <div className="grid grid-cols-[1fr_2fr]">
-  //       <aside className="border-r border-brand-border px-6 py-8">
-  //         Sidebar
-  //       </aside>
-  //       <section className="flex items-center justify-center px-8 py-8">
-  //         <LandingPageCard />
-  //       </section>
-  //     </div>
-  //     <footer className="border-t border-brand-border px-8 py-4 text-brand-hint">
-  //       Footer
-  //     </footer>
-  //   </main>
-  // );
+
 }

@@ -7,8 +7,9 @@
 
   /* Core backgrounds */
   --color-brand-bg: #0b0b0b;
-  --color-brand-surface: #111111;
-  --color-brand-surface-raised: #141414;
+  --color-brand-surface: #131313;
+  --color-brand-surface-raised: #1a1a1a;
+  --color-brand-surface-input: #1e1e1e;
 
   /* Green accent */
   --color-brand-green: #5fd93a;
@@ -23,11 +24,12 @@
 
   /* Text */
   --color-brand-text: #f0f0f0;
-  --color-brand-text-secondary: #555555;
-  --color-brand-text-hint: #333333;
+  --color-brand-text-secondary: #666666;
+  --color-brand-text-hint: #444444;
 
-  /* Inputs */
-  --color-brand-input: #0b0b0b;
+  /* Tabs */
+  --color-brand-tab-bg: #0b0b0b;
+  --color-brand-tab-active: #1e1e1e;
 
   /* Borders */
   --color-brand-border: rgba(255, 255, 255, 0.06);
@@ -52,7 +54,7 @@
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px #0b0b0b inset;
+  -webkit-box-shadow: 0 0 0px 1000px #0b0b0b inset; /* match your bg-brand-bg */
   -webkit-text-fill-color: #f0f0f0;
   caret-color: #f0f0f0;
   border: 0.5px solid rgba(255, 255, 255, 0.08) !important;
