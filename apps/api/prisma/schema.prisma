@@ -9,7 +9,6 @@ datasource db {
 // ─────────────────────────────────────────
 // AUTH
 // ─────────────────────────────────────────
-
 model User {
   id           String   @id @default(uuid())
   fullName     String   @map("full_name")
@@ -28,30 +27,30 @@ model User {
 // PLAID
 // ─────────────────────────────────────────
 
-// One PlaidItem = one connected bank/institution (e.g. Chase, BofA)
-// A user can have multiple. The accessToken is sensitive — encrypt at rest.
 model PlaidItem {
-  id                String    @id @default(uuid())
-  
-  // ⚠️  Encrypt this before storing — treat like a password
-  accessToken       String    @map("access_token")
-  
-  plaidItemId       String    @unique @map("plaid_item_id")
-  institutionId     String?   @map("institution_id")
-  institutionName   String?   @map("institution_name")
+  id                String          @id @default(uuid())
 
-  // Cursor for /transactions/sync — store after every sync
-  // Start without one; Plaid returns one on first call
-  transactionCursor String?   @map("transaction_cursor")
+  // ⚠️ Encrypted with AES-256-GCM before storing — never plaintext
+  accessToken       String          @map("access_token")
 
-  // Plaid can mark items as needing re-authentication
+  // Plaid's stable identifier for this connection
+  itemId            String          @unique @map("item_id")
+
+  institutionId     String?         @map("institution_id")
+  institutionName   String?         @map("institution_name")
+
+  // Cursor for /transactions/sync — null = never synced (triggers full history fetch)
+  // Update this after every successful sync inside a DB transaction
+  transactionCursor String?         @map("transaction_cursor")
+
+  // NEEDS_REAUTH = item.login_required webhook — prompt user to reconnect
   status            PlaidItemStatus @default(ACTIVE)
 
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
-  userId            String    @map("user_id")
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String          @map("user_id")
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   accounts          Account[]
 
@@ -60,32 +59,30 @@ model PlaidItem {
 
 enum PlaidItemStatus {
   ACTIVE
-  NEEDS_REAUTH  // item.login_required webhook → prompt user to reconnect
+  NEEDS_REAUTH
   DISCONNECTED
 }
 
-// One PlaidItem has many Accounts (checking, savings, credit card, etc.)
 model Account {
-  id              String      @id @default(uuid())
-  plaidAccountId  String      @unique @map("plaid_account_id")
-  name            String                          // e.g. "Sapphire Reserve"
-  officialName    String?     @map("official_name")
-  mask            String?                         // last 4 digits
-  type            String                          // depository | credit | investment | loan
-  subtype         String?                         // checking | savings | credit card | etc.
+  id               String      @id @default(uuid())
+  plaidAccountId   String      @unique @map("plaid_account_id")
+  name             String
+  officialName     String?     @map("official_name")
+  mask             String?
+  type             String
+  subtype          String?
 
-  // Balances — update on each sync
-  balanceCurrent  Decimal?    @map("balance_current")  @db.Decimal(12, 2)
-  balanceAvailable Decimal?   @map("balance_available") @db.Decimal(12, 2)
-  isoCurrencyCode String?     @map("iso_currency_code") @default("USD")
+  balanceCurrent   Decimal?    @map("balance_current")   @db.Decimal(12, 2)
+  balanceAvailable Decimal?    @map("balance_available") @db.Decimal(12, 2)
+  isoCurrencyCode  String?     @map("iso_currency_code") @default("USD")
 
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
 
-  plaidItemId     String      @map("plaid_item_id")
-  plaidItem       PlaidItem   @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
+  plaidItemId      String      @map("plaid_item_id")
+  plaidItem        PlaidItem   @relation(fields: [plaidItemId], references: [id], onDelete: Cascade)
 
-  transactions    Transaction[]
+  transactions     Transaction[]
 
   @@map("accounts")
 }
@@ -95,33 +92,29 @@ model Account {
 // ─────────────────────────────────────────
 
 model Transaction {
-  id                    String    @id @default(uuid())
-  plaidTransactionId    String    @unique @map("plaid_transaction_id")
+  id                      String              @id @default(uuid())
+  plaidTransactionId      String              @unique @map("plaid_transaction_id")
 
-  amount                Decimal   @db.Decimal(12, 2)   // positive = debit, negative = credit (Plaid convention)
-  isoCurrencyCode       String?   @map("iso_currency_code") @default("USD")
+  amount                  Decimal             @db.Decimal(12, 2)
+  isoCurrencyCode         String?             @map("iso_currency_code") @default("USD")
 
-  date                  DateTime                        // date of the transaction (not posted date)
-  name                  String                          // raw merchant name from Plaid
-  merchantName          String?   @map("merchant_name") // cleaned merchant name (Plaid enriches this)
+  date                    DateTime
+  name                    String
+  merchantName            String?             @map("merchant_name")
 
-  // Plaid's category taxonomy — store both for flexibility
-  // e.g. category: ["Food and Drink", "Restaurants"]
-  // personalFinanceCategory is Plaid's newer, better categorization
-  category              String[]                        // legacy: ["Food and Drink", "Restaurants"]
-  personalFinanceCategory String? @map("personal_finance_category") // new: "FOOD_AND_DRINK_RESTAURANTS"
+  category                String[]
+  personalFinanceCategory String?             @map("personal_finance_category")
 
-  pending               Boolean   @default(false)       // pending transactions can change/disappear
-  
-  // Recurring detection — set by your background job
-  isRecurring           Boolean   @default(false) @map("is_recurring")
-  recurringFrequency    RecurringFrequency? @map("recurring_frequency")
+  pending                 Boolean             @default(false)
 
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  isRecurring             Boolean             @default(false) @map("is_recurring")
+  recurringFrequency      RecurringFrequency? @map("recurring_frequency")
 
-  accountId             String    @map("account_id")
-  account               Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt               DateTime            @default(now()) @map("created_at")
+  updatedAt               DateTime            @updatedAt @map("updated_at")
+
+  accountId               String              @map("account_id")
+  account                 Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, date])
   @@index([personalFinanceCategory])
@@ -139,26 +132,18 @@ enum RecurringFrequency {
 // BUDGETS
 // ─────────────────────────────────────────
 
-// One budget = one category cap for one calendar month
-// e.g. "Food & Dining, March 2025, $500"
 model Budget {
-  id        String   @id @default(uuid())
-
-  // Match this against personalFinanceCategory on Transaction
-  category  String                          // e.g. "FOOD_AND_DRINK"
-
-  limitAmount Decimal @map("limit_amount") @db.Decimal(12, 2)
-
-  // Which month this budget applies to (store as first day of month, e.g. 2025-03-01)
+  id          String   @id @default(uuid())
+  category    String
+  limitAmount Decimal  @map("limit_amount") @db.Decimal(12, 2)
   periodStart DateTime @map("period_start") @db.Date
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // One budget per category per month per user
   @@unique([userId, category, periodStart])
   @@index([userId, periodStart])
   @@map("budgets")

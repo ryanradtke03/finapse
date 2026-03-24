@@ -1,28 +1,73 @@
 import type { NextFunction, Request, Response } from "express";
-import { CountryCode, LinkTokenCreateRequest, Products } from "plaid";
-import { plaidClient } from "../lib/plaidClient";
+import {
+    createLinkToken,
+    createUpdateLinkToken,
+    exchangePublicToken,
+    syncTransactions,
+} from "../services/plaid";
 
+export async function createLinkTokenHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const { link_token } = await createLinkToken(userId);
+    return res.json({ link_token });
+  } catch (err) {
+    return next(err);
+  }
+}
 
+export async function createUpdateLinkTokenHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const { itemId } = req.params;
+    const { link_token } = await createUpdateLinkToken(userId, itemId);
+    return res.json({ link_token });
+  } catch (err) {
+    return next(err);
+  }
+}
 
-export async function createLinkToken(req: Request, res: Response, next: NextFunction){
+export async function exchangePublicTokenHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const { public_token, institution } = req.body;
 
-    try{
-        const userId = req.user!.id;
+    const item = await exchangePublicToken({ userId, public_token, institution });
 
-        const plaidReq: LinkTokenCreateRequest = {
-            user: { client_user_id: userId },
-            client_name: "Finapse",
-            products: [Products.Transactions],
-            language: "en",
-            country_codes: [CountryCode.Us],
-          };
+    // Kick off initial sync in background — don't await
+    syncTransactions(userId, item.id).catch((err) =>
+      console.error("[sync] initial sync failed:", err)
+    );
 
-          const { data } = await plaidClient.linkTokenCreate(plaidReq);
-          return res.json({ link_token: data.link_token });
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+}
 
-
-    }catch(err){
-        return next(err)
-    }
-
+export async function syncTransactionsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const { itemId } = req.params;
+    const result = await syncTransactions(userId, itemId);
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
 }
