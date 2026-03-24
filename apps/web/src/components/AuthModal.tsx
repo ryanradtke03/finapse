@@ -173,6 +173,7 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
           {passwordError && <p className="text-xs text-brand-error mt-1">{passwordError}</p>}
         </div>
       </div>
+      {loginError && <p className="flex justify-center text-xs text-brand-error mt-2">{loginError}</p>}
       {/** Form Submit Options */}
       <FormSubmitOptions type="login"/>
       {/** Footer */}
@@ -362,6 +363,7 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
           {passwordError && <p className="text-xs text-brand-error mt-1">{passwordError}</p>}
         </div>
       </div>
+      {signupError && <p className="flex justify-center text-xs text-brand-error mt-2">{signupError}</p>}
       {/** Form Submit Options */}
       <FormSubmitOptions type="signup"/>
       {/** Footer */}
