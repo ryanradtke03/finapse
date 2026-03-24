@@ -1,1 +1,64 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Sora", sans-serif;
+  --font-display: "Sora", sans-serif;
+
+  /* Core backgrounds */
+  --color-brand-bg: #0b0b0b;
+  --color-brand-surface: #131313;
+  --color-brand-surface-raised: #1a1a1a;
+  --color-brand-surface-input: #1e1e1e;
+
+  /* Green accent */
+  --color-brand-green: #5fd93a;
+  --color-brand-green-hover: #6ee04f;
+  --color-brand-green-muted: rgba(95, 217, 58, 0.08);
+  --color-brand-green-border: rgba(95, 217, 58, 0.2);
+
+  /* Pill */
+  --color-brand-pill-bg: rgba(95, 217, 58, 0.08);
+  --color-brand-pill-border: rgba(95, 217, 58, 0.25);
+  --color-brand-pill-text: #5fd93a;
+
+  /* Text */
+  --color-brand-text: #f0f0f0;
+  --color-brand-text-secondary: #666666;
+  --color-brand-text-hint: #444444;
+
+  /* Tabs */
+  --color-brand-tab-bg: #0b0b0b;
+  --color-brand-tab-active: #1e1e1e;
+
+  /* Borders */
+  --color-brand-border: rgba(255, 255, 255, 0.06);
+  --color-brand-border-subtle: rgba(255, 255, 255, 0.10);
+
+  /* Semantic */
+  --color-brand-error: #e24b4a;
+  --color-brand-error-border: rgba(226, 75, 74, 0.35);
+  --color-brand-error-bg: rgba(226, 75, 74, 0.05);
+
+  --color-brand-warning: #ef9f27;
+  --color-brand-success: #5fd93a;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+}
+
+/* autofill fix */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #0b0b0b inset; /* match your bg-brand-bg */
+  -webkit-text-fill-color: #f0f0f0;
+  caret-color: #f0f0f0;
+  border: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  transition: none !important;
+}

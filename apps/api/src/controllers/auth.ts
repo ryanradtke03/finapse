@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import * as jwt from "jsonwebtoken";
+import passport from "passport";
 import { z } from "zod";
 import { clearAuthCookie, setAuthCookie } from "../auth/cookies";
 import { loginUser, registerUser } from "../services/auth";
@@ -6,6 +8,7 @@ import { loginUser, registerUser } from "../services/auth";
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  fullName: z.string().min(1),
 });
 
 const loginSchema = z.object({
@@ -30,6 +33,7 @@ export async function register(
       user: {
         id: user.id,
         email: user.email,
+        fullName: user.fullName,
         createdAt: user.createdAt,
       },
     });
@@ -68,6 +72,7 @@ export async function me(req: Request, res: Response, next: NextFunction) {
       user: {
         id: req.user.id,
         email: req.user.email,
+        fullName: req.user.fullName,
       },
     });
   } catch (err) {
@@ -79,3 +84,19 @@ export async function logout(_req: Request, res: Response) {
   clearAuthCookie(res);
   return res.status(204).send();
 }
+
+export const googleAuth = passport.authenticate("google", {scope: ["email", "profile"]});
+
+export const googleAuthCallback = [
+  passport.authenticate("google", { session: false, failureRedirect: "/login" }),
+  (req: Request, res: Response) => {
+    const user = req.user as { id: string; email: string };
+    const token = jwt.sign(
+      { sub: user.id, email: user.email },
+      process.env.JWT_SECRET!,
+      { expiresIn: "7d" } // match whatever you use elsewhere
+    );
+    setAuthCookie(res, token);
+    res.redirect("http://localhost:5173/dashboard");
+  },
+];

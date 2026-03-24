@@ -1,6 +1,8 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import passport from "passport";
+import "./auth/googleStrategy";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFound } from "./middleware/notFound";
 import authRoutes from "./routes/auth";
@@ -12,7 +14,7 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: ["http://localhost:5173"],
+      origin: ["http://localhost:5173", "http://localhost:5174"],
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
       // set this to true ONLY if you're using cookies for auth
@@ -23,6 +25,7 @@ export function createApp() {
   app.use(express.json());
   app.use(cookieParser());
 
+  app.use(passport.initialize());
   app.use(healthRouter);
   app.use("/recipies", recipiesRouter);
   app.use("/auth", authRoutes);

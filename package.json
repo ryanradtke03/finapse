@@ -7,18 +7,22 @@
   ],
   "type": "module",
   "scripts": {
-    "dev:api": "npm --workspace apps/api run dev",
-    "build:api": "npm --workspace apps/api run build",
-    "start:api": "npm --workspace apps/api run start",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres",
-    "db:reset": "docker compose down -v",
-    "lint": "eslint .",
-    "format": "prettier --write .",
-    "typecheck": "npm run typecheck --workspaces",
-    "test": "npm run test --workspaces"
-  },
+  "dev:api": "npm --workspace apps/api run dev",
+  "build:api": "npm --workspace apps/api run build",
+  "start:api": "npm --workspace apps/api run start",
+  "db:up": "docker compose up -d postgres",
+  "db:down": "docker compose down",
+  "db:logs": "docker compose logs -f postgres",
+  "db:reset": "docker compose down -v",
+  "backend:up": "docker compose up -d backend",
+  "backend:logs": "docker compose logs -f backend",
+  "docker:up": "docker compose up -d",
+  "docker:down": "docker compose down",
+  "lint": "eslint .",
+  "format": "prettier --write .",
+  "typecheck": "npm run typecheck --workspaces",
+  "test": "npm run test --workspaces"
+},
   "devDependencies": {
     "eslint": "^9.39.2"
   },
@@ -28,6 +32,7 @@
     "eslint-plugin-react-refresh": "^0.5.0",
     "globals": "^17.3.0",
     "prettier": "^3.8.1",
+    "react-google-button": "^0.8.0",
     "typescript-eslint": "^8.56.0"
   }
 }

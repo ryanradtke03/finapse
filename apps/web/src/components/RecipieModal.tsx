@@ -83,16 +83,36 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   );
 }
 
-export function RecipeModal({ recipe, onClose }: RecipeModalProps) {
+export function RecipeModal({
+  recipe,
+  submitFunction,
+  onClose,
+}: RecipeModalProps & {
+  submitFunction: (updatedRecipe: RecipeFormData) => Promise<void>;
+}) {
   const [activeTab, setActiveTab] = useState<"ingredients" | "steps">(
     "ingredients",
   );
+  const [showModal, setshowModal] = useState(false);
 
   const totalTime = (recipe?.prepTimeMin ?? 0) + (recipe?.cookTimeMin ?? 0);
 
   return (
     <Modal isOpen={!!recipe} onClose={onClose} title={recipe?.title}>
+      {showModal && (
+        <CreateModal
+          onSubmit={submitFunction} // Placeholder, implement update logic here
+          onClose={() => setshowModal(false)}
+        />
+      )}
       {/* Stats row */}
+      <button
+        onClick={() => setshowModal(true)}
+        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        Update
+      </button>
+
       <div className="flex gap-2 mb-5">
         {[
           { label: "Servings", value: recipe?.servings, icon: "🍽️" },
@@ -444,7 +464,7 @@ export function CreateModal({
             {formData.ingredients.map((ing, i) => (
               <div key={i} className="flex gap-2 items-center mb-2">
                 <input
-                  className="flex-[2] px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  className="flex-2 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
                   placeholder="Name (e.g. Chicken Breast)"
                   value={ing.name}
                   onChange={(e) => updateIngredient(i, "name", e.target.value)}

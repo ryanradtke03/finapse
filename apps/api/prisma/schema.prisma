@@ -8,55 +8,15 @@ datasource db {
 
 model User {
   id           String   @id @default(uuid())
+  fullName     String   @map("full_name")
   email        String   @unique
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-
-  recipes      Recipe[]
      
   @@map("users")
 }
 
-model Recipe {
-  id          String       @id @default(uuid())
-  title       String
-  description String?
-  servings    Int?
-  prepTimeMin Int?
-  cookTimeMin Int?
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  createdById String
-  createdBy   User         @relation(fields: [createdById], references: [id])
-
-  ingredients Ingredient[]
-  steps       Step[]
-}
-
-model Ingredient {
-  id        String   @id @default(uuid())
-  name      String
-  amount    String   // "1 cup", "200g", "2 tbsp"
-
-  recipeId  String
-  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-}
-
-model Step {
-  id          String   @id @default(uuid())
-  order       Int
-  title       String?
-  instructions String
-
-  recipeId    String
-  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime @default(now())
-}
 
 

@@ -1,21 +1,35 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: meal_planner_postgres
+    container_name: finapse_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: meal_planner
-      POSTGRES_PASSWORD: meal_planner_password
-      POSTGRES_DB: meal_planner_dev
+      POSTGRES_USER: finapse
+      POSTGRES_PASSWORD: finapse_password
+      POSTGRES_DB: finapse_dev
     ports:
       - "5432:5432"
     volumes:
-      - meal_planner_pgdata:/var/lib/postgresql/data
+      - finapse_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U meal_planner -d meal_planner_dev"]
+      test: ["CMD-SHELL", "pg_isready -U finapse -d finapse_dev"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: finapse_backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
-  meal_planner_pgdata:
+  finapse_pgdata:
