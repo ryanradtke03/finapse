@@ -6,7 +6,7 @@ import { prisma } from "../db/prisma";
 
 const SALT_ROUNDS = 12;
 
-export async function registerUser(data: { email: string; password: string }) {
+export async function registerUser(data: { email: string; password: string; fullName: string }) {
   const existingUser = await prisma.user.findUnique({
     where: { email: data.email },
   });
@@ -21,6 +21,7 @@ export async function registerUser(data: { email: string; password: string }) {
     data: {
       email: data.email,
       passwordHash: hashedPassword,
+      fullName: data.fullName,
     },
   });
 
@@ -35,6 +36,7 @@ type LoginInput = {
 type PublicUser = {
   id: string;
   email: string;
+  fullName: string;
 };
 
 function normalizeEmail(email: string) {
@@ -49,16 +51,13 @@ export async function loginUser(input: LoginInput): Promise<{
     options: CookieOptions;
   };
 }> {
-  // Grab and normalize email
   const email = normalizeEmail(input.email);
 
-  // Find user by email
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, email: true, passwordHash: true },
+    select: { id: true, email: true, fullName: true, passwordHash: true },
   });
 
-  // If no user, throw generic error
   if (!user) {
     throw Object.assign(new Error("Invalid email or password"), {
       status: 401,
@@ -84,7 +83,7 @@ export async function loginUser(input: LoginInput): Promise<{
   const isProd = process.env.NODE_ENV === "production";
 
   return {
-    user: { id: user.id, email: user.email },
+    user: { id: user.id, email: user.email, fullName: user.fullName },
     cookie: {
       name: "token",
       value: token,
@@ -93,8 +92,6 @@ export async function loginUser(input: LoginInput): Promise<{
         secure: isProd,
         sameSite: "lax",
         path: "/",
-        // optional: set a maxAge if you want cookie expiry aligned
-        // maxAge: 7 * 24 * 60 * 60 * 1000,
       },
     },
   };

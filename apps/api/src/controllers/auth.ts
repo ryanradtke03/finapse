@@ -8,6 +8,7 @@ import { loginUser, registerUser } from "../services/auth";
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  fullName: z.string().min(1),
 });
 
 const loginSchema = z.object({
@@ -32,6 +33,7 @@ export async function register(
       user: {
         id: user.id,
         email: user.email,
+        fullName: user.fullName,
         createdAt: user.createdAt,
       },
     });
@@ -70,6 +72,7 @@ export async function me(req: Request, res: Response, next: NextFunction) {
       user: {
         id: req.user.id,
         email: req.user.email,
+        fullName: req.user.fullName,
       },
     });
   } catch (err) {
