@@ -7,6 +7,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import { notFound } from "./middleware/notFound";
 import authRoutes from "./routes/auth";
 import healthRouter from "./routes/health";
+import plaidRouter from "./routes/plaid";
 import recipiesRouter from "./routes/recipie";
 
 export function createApp() {
@@ -29,6 +30,7 @@ export function createApp() {
   app.use(healthRouter);
   app.use("/recipies", recipiesRouter);
   app.use("/auth", authRoutes);
+  app.use("/plaid", plaidRouter);
 
   app.use(notFound);
   app.use(errorHandler);

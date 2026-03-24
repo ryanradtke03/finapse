@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, register } from "../api/auth";
+import { googleAuthUrl, login, register } from "../api/auth";
 import { FullLogo } from "../components/Logo";
 import { loginSchema, signupSchema } from "../schemas/auth";
 import logger from "../utils/logger";
@@ -9,6 +9,10 @@ import logger from "../utils/logger";
 
 
 function FormSubmitOptions({type}: {type: "login" | "signup"}){
+  const handleGoogleLogin = () => {
+    window.location.href = googleAuthUrl;
+  };
+
   return(
     <div className="flex flex-col items-center w-full mt-6">
       {/** Login */}
@@ -22,7 +26,7 @@ function FormSubmitOptions({type}: {type: "login" | "signup"}){
         <div className="flex-1 h-px bg-brand-text-secondary"/>
       </div>
       {/** Google */}
-      <button type="button" className="cursor-pointer flex items-center justify-center gap-2 border border-brand-border-subtle w-full rounded-xl py-2 text-sm text-brand-text hover:border-brand-border hover:bg-brand-border-subtle transition-colors duration-200">
+      <button onClick={handleGoogleLogin} type="button" className="cursor-pointer flex items-center justify-center gap-2 border border-brand-border-subtle w-full rounded-xl py-2 text-sm text-brand-text hover:border-brand-border hover:bg-brand-border-subtle transition-colors duration-200">
       <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
         <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
         <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
