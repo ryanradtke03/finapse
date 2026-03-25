@@ -1,9 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import {
-    createLinkToken,
-    createUpdateLinkToken,
-    exchangePublicToken,
-    syncTransactions,
+  createLinkToken,
+  exchangePublicToken,
+  syncTransactions,
 } from "../services/plaid";
 
 export async function createLinkTokenHandler(
@@ -12,28 +11,15 @@ export async function createLinkTokenHandler(
   next: NextFunction,
 ) {
   try {
-    const userId = req.user!.id;
-    const { link_token } = await createLinkToken(userId);
-    return res.json({ link_token });
+    const userId = req.user!.id
+    const { institution_id } = req.body  // optional
+    const result = await createLinkToken(userId, institution_id)
+    return res.json(result)
   } catch (err) {
-    return next(err);
+    return next(err)
   }
 }
 
-export async function createUpdateLinkTokenHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const userId = req.user!.id;
-    const { itemId } = req.params;
-    const { link_token } = await createUpdateLinkToken(userId, itemId);
-    return res.json({ link_token });
-  } catch (err) {
-    return next(err);
-  }
-}
 
 export async function exchangePublicTokenHandler(
   req: Request,
