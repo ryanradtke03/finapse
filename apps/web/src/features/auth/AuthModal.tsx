@@ -381,6 +381,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(defaultTab)
     }
   }, [open, defaultTab])
