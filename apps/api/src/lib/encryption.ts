@@ -13,7 +13,7 @@ import { requireEnv } from "../config/env";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_BYTES = 12;   // 96-bit IV — recommended for GCM
-const TAG_BYTES = 16;  // 128-bit auth tag — GCM default
+//const TAG_BYTES = 16;  // 128-bit auth tag — GCM default
 
 function getKey(): Buffer {
   const hex = requireEnv("ENCRYPTION_KEY");
