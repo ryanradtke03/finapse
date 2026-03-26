@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, register } from "../api/auth";
-import { FullLogo } from "../components/Logo";
-import { loginSchema, signupSchema } from "../schemas/auth";
-import logger from "../utils/logger";
+import { login, register } from "./auth.api";
+import { FullLogo } from "../../components/Logo";
+import { loginSchema, signupSchema } from "@finapse/schemas";
+import logger from "../../utils/logger";
 
 
 
@@ -51,7 +51,7 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
       setEmailError("")
     }
   }
-  
+
 
   const validatePassword = (value: string) => {
     const result = loginSchema.shape.password.safeParse(value)
@@ -73,7 +73,7 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
     // Zod Validation
     const result = loginSchema.safeParse({email, password});
 
-    // Handle Form Error 
+    // Handle Form Error
     if(!result.success){
       const errors = result.error.flatten().fieldErrors;
       if (errors.email) setEmailError(errors.email[0]);
@@ -87,14 +87,14 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
       return;
     }
 
-    // Make call to endpoint 
+    // Make call to endpoint
     logger.debug("Make call to login endpoint");
     try{
       const res = await login(email, password);
       logger.debug("Res:", {res: await res.json()});
 
       navigate("/Dashboard");
-      
+
 
     }catch(error: unknown){
       if(error instanceof Error){
@@ -205,7 +205,7 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
       setEmailError("")
     }
   }
-  
+
 
   const validatePassword = (value: string) => {
     const result = signupSchema.shape.password.safeParse(value)
@@ -237,7 +237,7 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
     // Zod Validation
     const result = signupSchema.safeParse({email, password, fullName});
 
-    // Handle Form Error 
+    // Handle Form Error
     if(!result.success){
       const errors = result.error.flatten().fieldErrors;
       if (errors.email) setEmailError(errors.email[0]);
@@ -253,15 +253,15 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
       return;
     }
 
-     // Make call to endpoint 
+     // Make call to endpoint
      logger.debug("Make call to register endpoint");
      try{
        const res = await register(email, password, fullName);
        logger.debug("Res:", {res: await res.json()});
- 
+
        navigate("/Dashboard");
-       
- 
+
+
      }catch(error: unknown){
        if(error instanceof Error){
          logger.error("Register failed:", {error: error.message});
@@ -381,6 +381,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(defaultTab)
     }
   }, [open, defaultTab])
@@ -390,14 +391,14 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
   return(
     <div  onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       {/** Modal Wrapper v Modal Background ^ */}
-      <div  
+      <div
       onClick={(e) => e.stopPropagation()}
         className={`
           w-100
           bg-brand-surface
           border border-brand-border
           rounded-2xl
-          shadow-2xl  
+          shadow-2xl
           relative
           py-6
         `}>
@@ -410,7 +411,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
             hover:text-brand-text
             hover:border-brand-text
             `}>
-            ✕ 
+            ✕
           </button>
           {/** Main Content */}
           <div className="flex flex-col items-center ">
@@ -420,7 +421,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
             </div>
             {/** Form Type */}
             <div className="w-80 mt-8 flex bg-brand-bg border border-brand-border-subtle p-1 rounded-xl">
-              <button 
+              <button
                 type="button"
                 onClick={() => setActiveTab("login")}
                 className={`
@@ -433,7 +434,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
                 `}>
                 Log in
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setActiveTab("signup")}
                 className={`

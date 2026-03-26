@@ -1,8 +1,8 @@
 import bcrypt from "bcrypt";
 import type { CookieOptions } from "express";
 import * as jwt from "jsonwebtoken";
-import { requireEnv } from "../config/env";
-import { prisma } from "../db/prisma";
+import { requireEnv } from "../../config/env";
+import { prisma } from "../../db/prisma";
 
 const SALT_ROUNDS = 12;
 

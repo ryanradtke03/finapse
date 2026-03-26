@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AuthModal } from "../components/AuthModal";
+import { AuthModal } from "../features/auth/AuthModal";
 import { FullLogo, LogoText } from "../components/Logo";
 
 const NAV_LINKS = ["Features", "Pricing", "Blog", "About"]

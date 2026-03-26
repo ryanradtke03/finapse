@@ -1,6 +1,6 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { prisma } from "../db/prisma";
+import { prisma } from "../../db/prisma";
 
 passport.use(
   new GoogleStrategy(
@@ -21,7 +21,7 @@ passport.use(
 
         if (!user) {
           user = await prisma.user.create({
-            data: { email, passwordHash: "" },
+            data: { email, passwordHash: "", fullName: "" },
           });
         }
 

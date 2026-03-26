@@ -1,30 +1,31 @@
 {
-  "name": "meal_planner",
+  "name": "finapse",
   "private": true,
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "packageManager": "npm@11.10.0",
   "type": "module",
   "scripts": {
-  "dev:api": "npm --workspace apps/api run dev",
-  "build:api": "npm --workspace apps/api run build",
-  "start:api": "npm --workspace apps/api run start",
-  "db:up": "docker compose up -d postgres",
-  "db:down": "docker compose down",
-  "db:logs": "docker compose logs -f postgres",
-  "db:reset": "docker compose down -v",
-  "backend:up": "docker compose up -d backend",
-  "backend:logs": "docker compose logs -f backend",
-  "docker:up": "docker compose up -d",
-  "docker:down": "docker compose down",
-  "lint": "eslint .",
-  "format": "prettier --write .",
-  "typecheck": "npm run typecheck --workspaces",
-  "test": "npm run test --workspaces"
-},
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "dev:api": "turbo dev --filter=api",
+    "dev:web": "turbo dev --filter=web",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "format": "prettier --write .",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:reset": "docker compose down -v",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
   "devDependencies": {
-    "eslint": "^9.39.2"
+    "eslint": "^9.39.2",
+    "turbo": "latest"
   },
   "dependencies": {
     "eslint-config-prettier": "^10.1.8",
@@ -32,7 +33,6 @@
     "eslint-plugin-react-refresh": "^0.5.0",
     "globals": "^17.3.0",
     "prettier": "^3.8.1",
-    "react-google-button": "^0.8.0",
     "typescript-eslint": "^8.56.0"
   }
 }
