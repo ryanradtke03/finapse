@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { googleAuthUrl, login, register } from "../api/auth";
-import { FullLogo } from "../components/Logo";
-import { loginSchema, signupSchema } from "../schemas/auth";
-import logger from "../utils/logger";
+import { googleAuthUrl, login, register } from "./auth.api";
+import { FullLogo } from "../../components/Logo";
+import { loginSchema, signupSchema } from "@finapse/schemas";
+import logger from "../../utils/logger";
 
 
 

@@ -1,10 +1,10 @@
 import { Router } from "express";
+import { requireAuth } from "../../middleware/require-auth";
 import {
     createLinkTokenHandler,
     exchangePublicTokenHandler,
     syncTransactionsHandler,
-} from "../controllers/plaid";
-import { requireAuth } from "../middleware/requireAuth";
+} from "./plaid.controller";
 
 const router = Router();
 

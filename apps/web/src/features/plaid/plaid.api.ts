@@ -1,5 +1,5 @@
 import type { PlaidAccount } from "react-plaid-link";
-import { apiBaseUrl } from "./index";
+import { apiBaseUrl } from "../../api/index";
 
 export const createLinkToken = async (
   institutionId?: string

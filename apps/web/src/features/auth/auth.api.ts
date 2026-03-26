@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "./index";
+import { apiBaseUrl } from "../../api/index";
 
 export const login = async (email: string, password: string) => {
     const res = await fetch(`${apiBaseUrl}/auth/login`, {

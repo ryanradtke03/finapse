@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { PlaidLinkOnExit, PlaidLinkOnSuccess } from "react-plaid-link"
 import { usePlaidLink } from "react-plaid-link"
-import { createLinkToken, exchangeToken, syncTransactions } from "../api/plaid"
+import { createLinkToken, exchangeToken, syncTransactions } from "../features/plaid/plaid.api"
 import logger from "../utils/logger"
 
 type Mode = { type: "new" } | { type: "update"; itemId: string }

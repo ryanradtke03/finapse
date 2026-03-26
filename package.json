@@ -1,5 +1,5 @@
 {
-  "name": "meal_planner",
+  "name": "finapse",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -18,13 +18,16 @@
     "backend:logs": "docker compose logs -f backend",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "lint": "eslint .",
-    "format": "prettier --write .",
-    "typecheck": "npm run typecheck --workspaces",
-    "test": "npm run test --workspaces"
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "format": "prettier --write ."
   },
   "devDependencies": {
-    "eslint": "^9.39.2"
+    "eslint": "^9.39.2",
+    "turbo": "latest"
   },
   "dependencies": {
     "eslint-config-prettier": "^10.1.8",
