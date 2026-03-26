@@ -1,8 +1,9 @@
 {
   "extends": "@finapse/config/typescript/node",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist"
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src"
   },
   "include": ["src/**/*.ts"]
 }
