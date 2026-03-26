@@ -3,11 +3,11 @@ import cors from "cors";
 import express from "express";
 import passport from "passport";
 import "./features/auth/google-strategy";
-import authRoutes from "./features/auth/auth.routes";
-import healthRouter from "./features/health/health.route";
-import plaidRouter from "./features/plaid/plaid.routes";
 import { errorHandler } from "./middleware/error-handler";
 import { notFound } from "./middleware/not-found";
+import authRouter from "./features/auth/auth.routes";
+import plaidRouter from "./features/plaid/plaid.routes";
+import healthRouter from "./routes/health";
 
 export function createApp() {
   const app = express();
@@ -27,7 +27,7 @@ export function createApp() {
 
   app.use(passport.initialize());
   app.use(healthRouter);
-  app.use("/auth", authRoutes);
+  app.use("/auth", authRouter);
   app.use("/plaid", plaidRouter);
 
   app.use(notFound);

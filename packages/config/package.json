@@ -1,6 +1,6 @@
 {
   "name": "@finapse/config",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "private": true,
-  "license": "UNLICENSED"
+  "description": "Shared TypeScript configs for the finapse monorepo"
 }

@@ -21,7 +21,7 @@ passport.use(
 
         if (!user) {
           user = await prisma.user.create({
-            data: { email, passwordHash: "", fullName: profile.displayName ?? ""},
+            data: { email, passwordHash: "", fullName: "" },
           });
         }
 

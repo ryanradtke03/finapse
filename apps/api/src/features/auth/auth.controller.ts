@@ -2,19 +2,9 @@ import type { NextFunction, Request, Response } from "express";
 import * as jwt from "jsonwebtoken";
 import passport from "passport";
 import { z } from "zod";
-import { clearAuthCookie, setAuthCookie } from "./auth.cookies";
+import { loginSchema, registerSchema } from "@finapse/schemas";
+import { clearAuthCookie, setAuthCookie } from "./cookies";
 import { loginUser, registerUser } from "./auth.service";
-
-const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  fullName: z.string().min(1),
-});
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
 
 function httpError(status: number, message: string) {
   return Object.assign(new Error(message), { status });
@@ -54,7 +44,6 @@ export async function login(req: Request, res: Response, next: NextFunction) {
       user: result.user,
     });
   } catch (err) {
-    // Keep login errors generic at the edge
     if (err instanceof z.ZodError) {
       return next(httpError(400, "Invalid request body"));
     }
@@ -72,7 +61,6 @@ export async function me(req: Request, res: Response, next: NextFunction) {
       user: {
         id: req.user.id,
         email: req.user.email,
-        fullName: req.user.fullName,
       },
     });
   } catch (err) {
@@ -85,7 +73,7 @@ export async function logout(_req: Request, res: Response) {
   return res.status(204).send();
 }
 
-export const googleAuth = passport.authenticate("google", {scope: ["email", "profile"]});
+export const googleAuth = passport.authenticate("google", { scope: ["email", "profile"] });
 
 export const googleAuthCallback = [
   passport.authenticate("google", { session: false, failureRedirect: "/login" }),
@@ -94,7 +82,7 @@ export const googleAuthCallback = [
     const token = jwt.sign(
       { sub: user.id, email: user.email },
       process.env.JWT_SECRET!,
-      { expiresIn: "7d" } // match whatever you use elsewhere
+      { expiresIn: "7d" }
     );
     setAuthCookie(res, token);
     res.redirect("http://localhost:5173/dashboard");

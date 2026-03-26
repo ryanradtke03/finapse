@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { googleAuthUrl, login, register } from "./auth.api";
+import { login, register } from "./auth.api";
 import { FullLogo } from "../../components/Logo";
 import { loginSchema, signupSchema } from "@finapse/schemas";
 import logger from "../../utils/logger";
@@ -9,10 +9,6 @@ import logger from "../../utils/logger";
 
 
 function FormSubmitOptions({type}: {type: "login" | "signup"}){
-  const handleGoogleLogin = () => {
-    window.location.href = googleAuthUrl;
-  };
-
   return(
     <div className="flex flex-col items-center w-full mt-6">
       {/** Login */}
@@ -26,7 +22,7 @@ function FormSubmitOptions({type}: {type: "login" | "signup"}){
         <div className="flex-1 h-px bg-brand-text-secondary"/>
       </div>
       {/** Google */}
-      <button onClick={handleGoogleLogin} type="button" className="cursor-pointer flex items-center justify-center gap-2 border border-brand-border-subtle w-full rounded-xl py-2 text-sm text-brand-text hover:border-brand-border hover:bg-brand-border-subtle transition-colors duration-200">
+      <button type="button" className="cursor-pointer flex items-center justify-center gap-2 border border-brand-border-subtle w-full rounded-xl py-2 text-sm text-brand-text hover:border-brand-border hover:bg-brand-border-subtle transition-colors duration-200">
       <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
         <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
         <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
@@ -55,7 +51,7 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
       setEmailError("")
     }
   }
-  
+
 
   const validatePassword = (value: string) => {
     const result = loginSchema.shape.password.safeParse(value)
@@ -77,7 +73,7 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
     // Zod Validation
     const result = loginSchema.safeParse({email, password});
 
-    // Handle Form Error 
+    // Handle Form Error
     if(!result.success){
       const errors = result.error.flatten().fieldErrors;
       if (errors.email) setEmailError(errors.email[0]);
@@ -91,14 +87,14 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
       return;
     }
 
-    // Make call to endpoint 
+    // Make call to endpoint
     logger.debug("Make call to login endpoint");
     try{
       const res = await login(email, password);
       logger.debug("Res:", {res: await res.json()});
 
       navigate("/Dashboard");
-      
+
 
     }catch(error: unknown){
       if(error instanceof Error){
@@ -209,7 +205,7 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
       setEmailError("")
     }
   }
-  
+
 
   const validatePassword = (value: string) => {
     const result = signupSchema.shape.password.safeParse(value)
@@ -241,7 +237,7 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
     // Zod Validation
     const result = signupSchema.safeParse({email, password, fullName});
 
-    // Handle Form Error 
+    // Handle Form Error
     if(!result.success){
       const errors = result.error.flatten().fieldErrors;
       if (errors.email) setEmailError(errors.email[0]);
@@ -257,15 +253,15 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
       return;
     }
 
-     // Make call to endpoint 
+     // Make call to endpoint
      logger.debug("Make call to register endpoint");
      try{
        const res = await register(email, password, fullName);
        logger.debug("Res:", {res: await res.json()});
- 
+
        navigate("/Dashboard");
-       
- 
+
+
      }catch(error: unknown){
        if(error instanceof Error){
          logger.error("Register failed:", {error: error.message});
@@ -385,6 +381,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveTab(defaultTab)
     }
   }, [open, defaultTab])
@@ -394,14 +391,14 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
   return(
     <div  onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       {/** Modal Wrapper v Modal Background ^ */}
-      <div  
+      <div
       onClick={(e) => e.stopPropagation()}
         className={`
           w-100
           bg-brand-surface
           border border-brand-border
           rounded-2xl
-          shadow-2xl  
+          shadow-2xl
           relative
           py-6
         `}>
@@ -414,7 +411,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
             hover:text-brand-text
             hover:border-brand-text
             `}>
-            ✕ 
+            ✕
           </button>
           {/** Main Content */}
           <div className="flex flex-col items-center ">
@@ -424,7 +421,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
             </div>
             {/** Form Type */}
             <div className="w-80 mt-8 flex bg-brand-bg border border-brand-border-subtle p-1 rounded-xl">
-              <button 
+              <button
                 type="button"
                 onClick={() => setActiveTab("login")}
                 className={`
@@ -437,7 +434,7 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
                 `}>
                 Log in
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setActiveTab("signup")}
                 className={`
