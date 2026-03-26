@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import * as jwt from "jsonwebtoken";
 import passport from "passport";
 import { z } from "zod";
-import { clearAuthCookie, setAuthCookie } from "../../auth/cookies";
+import { clearAuthCookie, setAuthCookie } from "./auth.cookies";
 import { loginUser, registerUser } from "./auth.service";
 
 const registerSchema = z.object({
