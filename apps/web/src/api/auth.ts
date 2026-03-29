@@ -1,11 +1,12 @@
+import type { AuthResponse } from "@finapse/types";
 import { apiBaseUrl } from "./index";
 
-export const login = async (email: string, password: string) => {
+export const login = async (email: string, password: string): Promise<AuthResponse> => {
     const res = await fetch(`${apiBaseUrl}/auth/login`, {
        method: "POST",
        headers: {
         "Content-Type": "application/json",
-       }, 
+       },
        credentials: "include",
        body: JSON.stringify({email, password}),
     })
@@ -15,10 +16,10 @@ export const login = async (email: string, password: string) => {
         throw error;
     }
 
-    return res;
+    return res.json();
 }
 
-export const register = async(email: string, password: string, fullName: string) => {
+export const register = async(email: string, password: string, fullName: string): Promise<AuthResponse> => {
     const res = await fetch(`${apiBaseUrl}/auth/register`, {
         method: "POST",
         headers: {
@@ -32,8 +33,7 @@ export const register = async(email: string, password: string, fullName: string)
         throw error;
     }
 
-    return res;
-
+    return res.json();
 }
 
 export const googleAuthUrl = `${apiBaseUrl}/auth/google`;

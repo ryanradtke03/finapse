@@ -6,6 +6,7 @@ declare global {
       user?: {
         id: string;
         email: string;
+        fullName?: string;
       };
     }
   }
@@ -17,7 +18,8 @@ declare module "express-serve-static-core" {
   interface Request {
     user?: {
       id: string;
-      email?: string;
+      email: string;
+      fullName?: string;
     };
   }
 }

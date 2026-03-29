@@ -2,7 +2,8 @@ import type { NextFunction, Request, Response } from "express";
 import {
   createLinkToken,
   exchangePublicToken,
-  syncTransactions,
+  getItemsService,
+  syncTransactions
 } from "./plaid.service";
 
 export async function createLinkTokenHandler(
@@ -55,5 +56,19 @@ export async function syncTransactionsHandler(
     return res.json(result);
   } catch (err) {
     return next(err);
+  }
+}
+
+export async function getItems(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id
+    const items = await getItemsService(userId)
+    res.json(items)
+  } catch (err) {
+    next(err)
   }
 }

@@ -2,12 +2,9 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import passport from "passport";
-import "./features/auth/auth.googleStrategy";
-import authRoutes from "./features/auth/auth.route";
-import healthRouter from "./features/health/health.route";
-import plaidRouter from "./features/plaid/plaid.route";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFound } from "./middleware/notFound";
+import routes from './routes';
 
 
 export function createApp() {
@@ -25,11 +22,9 @@ export function createApp() {
 
   app.use(express.json());
   app.use(cookieParser());
-
   app.use(passport.initialize());
-  app.use(healthRouter);
-  app.use("/auth", authRoutes);
-  app.use("/plaid", plaidRouter);
+
+  app.use('/api/v1', routes)
 
   app.use(notFound);
   app.use(errorHandler);

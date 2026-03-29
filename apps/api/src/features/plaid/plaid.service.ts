@@ -456,3 +456,26 @@ import { plaidClient } from "../../lib/plaidClient";
       pending:                 t.pending,
     };
   }
+
+  export async function getItemsService(userId: string) {
+    return prisma.plaidItem.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        institutionId: true,
+        institutionName: true,
+        status: true,
+        updatedAt: true,
+        accounts: {
+          select: {
+            id: true,
+            name: true,
+            mask: true,
+            type: true,
+            subtype: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+  }
