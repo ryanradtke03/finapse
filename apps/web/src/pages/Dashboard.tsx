@@ -31,7 +31,7 @@ export default function Dashboard() {
 
           {/* Header */}
           <div className="text-brand-text flex flex-row border-b border-b-brand-text-secondary justify-between min-w-100 py-2">
-            <div className="pl-4">Connected Account</div>
+            <div className="pl-4">Connected Accounts</div>
             <button className="pr-4">+ Add Institution</button>
           </div>
 
