@@ -1,5 +1,5 @@
 {
-  "name": "meal_planner",
+  "name": "finapse",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -24,16 +24,12 @@
     "test": "npm run test --workspaces"
   },
   "devDependencies": {
-    "eslint": "^9.39.2"
-  },
-  "dependencies": {
+    "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.0",
     "globals": "^17.3.0",
-    "plaid": "^41.4.0",
     "prettier": "^3.8.1",
-    "react-google-button": "^0.8.0",
     "typescript-eslint": "^8.56.0"
   }
 }

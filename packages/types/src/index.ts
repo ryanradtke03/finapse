@@ -1,0 +1,69 @@
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+export type PlaidItemStatus = "ACTIVE" | "NEEDS_REAUTH" | "DISCONNECTED";
+
+export type RecurringFrequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "ANNUALLY";
+
+// ─── Domain Types ─────────────────────────────────────────────────────────────
+
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  createdAt: string;
+}
+
+export interface PlaidItem {
+  id: string;
+  itemId: string;
+  institutionId: string | null;
+  institutionName: string | null;
+  status: PlaidItemStatus;
+  updatedAt: string;        
+  accounts: Account[];       
+}
+
+export interface Account {
+  id: string;
+  plaidAccountId: string;
+  name: string;
+  officialName: string | null;
+  mask: string | null;
+  type: string;
+  subtype: string | null;
+  balanceCurrent: string | null;
+  balanceAvailable: string | null;
+  isoCurrencyCode: string | null;
+}
+
+export interface Transaction {
+  id: string;
+  plaidTransactionId: string;
+  amount: string;
+  isoCurrencyCode: string | null;
+  date: string;
+  name: string;
+  merchantName: string | null;
+  category: string[];
+  personalFinanceCategory: string | null;
+  pending: boolean;
+  isRecurring: boolean;
+  recurringFrequency: RecurringFrequency | null;
+}
+
+export interface Budget {
+  id: string;
+  category: string;
+  limitAmount: string;
+  periodStart: string;
+}
+
+// ─── API Response Shapes ──────────────────────────────────────────────────────
+
+export interface AuthResponse {
+  user: User;
+}
+
+export interface MeResponse {
+  user: User;
+}

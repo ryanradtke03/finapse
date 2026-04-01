@@ -1,3 +1,4 @@
+import type { PlaidItem } from '@finapse/types';
 import type { PlaidAccount } from "react-plaid-link";
 import { apiBaseUrl } from "./index";
 
@@ -57,3 +58,17 @@ export const syncTransactions = async (
 
   return res.json();
 };
+
+export const getItems = async (): Promise<PlaidItem[]> => {
+  const res = await fetch(`${apiBaseUrl}/plaid/item`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw error
+  }
+
+  return res.json()
+}

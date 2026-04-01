@@ -1,7 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import {
   createLinkToken,
+  deletePlaidAccount,
+  deletePlaidItem,
   exchangePublicToken,
+  getItemsService,
   syncTransactions,
 } from "./plaid.service";
 
@@ -55,5 +58,51 @@ export async function syncTransactionsHandler(
     return res.json(result);
   } catch (err) {
     return next(err);
+  }
+}
+
+export async function getItems(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id
+    const items = await getItemsService(userId)
+    res.json(items)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function deleteItem(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+){
+  try{
+    const userId = req.user!.id;
+    const {id} = req.params;
+
+    await deletePlaidItem(userId, id);
+  }catch(err){
+    next(err)
+  }
+}
+
+export async function deleteAccount(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    await deletePlaidAccount(userId, id);
+
+    res.status(200).json({ message: 'Account removed successfully' });
+  } catch (err) {
+    next(err);
   }
 }

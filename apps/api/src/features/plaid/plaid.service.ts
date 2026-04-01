@@ -117,7 +117,7 @@ import { plaidClient } from "../../lib/plaidClient";
         console.log("[exchange] resetting cursor for full re-sync")
         await prisma.plaidItem.update({
           where: { id: existingItem.id },
-          data: { transactionCursor: null },
+          data: { transactionCursor: null, status: 'ACTIVE', },
         })
         console.log("[exchange] cursor reset ok")
 
@@ -455,4 +455,67 @@ import { plaidClient } from "../../lib/plaidClient";
       personalFinanceCategory: t.personal_finance_category?.primary ?? null,
       pending:                 t.pending,
     };
+  }
+
+  export async function getItemsService(userId: string) {
+    return prisma.plaidItem.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        institutionId: true,
+        institutionName: true,
+        status: true,
+        updatedAt: true,
+        accounts: {
+          select: {
+            id: true,
+            name: true,
+            mask: true,
+            type: true,
+            subtype: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+  }
+
+  export async function deletePlaidItem(userId: string, itemId: string): Promise<void> {
+    const item = await prisma.plaidItem.findFirst({
+      where: { id: itemId, userId },
+      select: { id: true, accessToken: true },
+    });
+  
+    if (!item) {
+      const err = Object.assign(new Error('Plaid item not found'), { status: 404 });
+      throw err;
+    }
+  
+    const decryptedToken = decrypt(item.accessToken);
+  
+    try {
+      await plaidClient.itemRemove({ access_token: decryptedToken });
+    } catch (plaidErr) {
+      console.warn(`[deleteItem] Plaid itemRemove failed for item ${itemId}, proceeding with DB delete:`, plaidErr);
+    }
+  
+    await prisma.plaidItem.delete({
+      where: { id: item.id },
+    });
+  }
+
+  export async function deletePlaidAccount(userId: string, accountId: string): Promise<void> {
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, plaidItem: { userId } },
+      select: { id: true },
+    });
+  
+    if (!account) {
+      const err = Object.assign(new Error('Account not found'), { status: 404 });
+      throw err;
+    }
+  
+    await prisma.account.delete({
+      where: { id: account.id },
+    });
   }

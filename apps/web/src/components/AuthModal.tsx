@@ -95,7 +95,7 @@ function LoginForm({onSwitch}: {onSwitch: () => void}){
     logger.debug("Make call to login endpoint");
     try{
       const res = await login(email, password);
-      logger.debug("Res:", {res: await res.json()});
+      logger.debug("Res:", {res:  res});
 
       navigate("/Dashboard");
       
@@ -261,7 +261,7 @@ function SignupForm({onSwitch}: {onSwitch: () => void}){
      logger.debug("Make call to register endpoint");
      try{
        const res = await register(email, password, fullName);
-       logger.debug("Res:", {res: await res.json()});
+       logger.debug("Res:", {res: res});
  
        navigate("/Dashboard");
        
