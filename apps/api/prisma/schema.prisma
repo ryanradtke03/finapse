@@ -92,32 +92,36 @@ model Account {
 // ─────────────────────────────────────────
 
 model Transaction {
-  id                      String              @id @default(uuid())
-  plaidTransactionId      String              @unique @map("plaid_transaction_id")
+  id                             String              @id @default(uuid())
+  plaidTransactionId             String              @unique @map("plaid_transaction_id")
 
-  amount                  Decimal             @db.Decimal(12, 2)
-  isoCurrencyCode         String?             @map("iso_currency_code") @default("USD")
+  amount                         Decimal             @db.Decimal(12, 2)
+  isoCurrencyCode                String?             @map("iso_currency_code") @default("USD")
 
-  date                    DateTime
-  name                    String
-  merchantName            String?             @map("merchant_name")
+  date                           DateTime
+  name                           String
+  merchantName                   String?             @map("merchant_name")
 
-  category                String[]
-  personalFinanceCategory String?             @map("personal_finance_category")
+  category                       String[]
+  personalFinanceCategory        String?             @map("personal_finance_category")
+  personalFinanceCategoryDetail  String?             @map("personal_finance_category_detail")
 
-  pending                 Boolean             @default(false)
+  userCategory                   String?             @map("user_category")
 
-  isRecurring             Boolean             @default(false) @map("is_recurring")
-  recurringFrequency      RecurringFrequency? @map("recurring_frequency")
+  pending                        Boolean             @default(false)
 
-  createdAt               DateTime            @default(now()) @map("created_at")
-  updatedAt               DateTime            @updatedAt @map("updated_at")
+  isRecurring                    Boolean             @default(false) @map("is_recurring")
+  recurringFrequency             RecurringFrequency? @map("recurring_frequency")
 
-  accountId               String              @map("account_id")
-  account                 Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt                      DateTime            @default(now()) @map("created_at")
+  updatedAt                      DateTime            @updatedAt @map("updated_at")
+
+  accountId                      String              @map("account_id")
+  account                        Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, date])
   @@index([personalFinanceCategory])
+  @@index([userCategory])
   @@map("transactions")
 }
 
