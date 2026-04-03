@@ -384,10 +384,10 @@ export function AuthModal({open, onClose, defaultTab = "login"}: {open: boolean,
   const [activeTab, setActiveTab] = useState<"login" | "signup">(defaultTab)
 
   useEffect(() => {
-    if (open) {
-      setActiveTab(defaultTab)
+    if (open && activeTab !== defaultTab) {
+      setActiveTab(defaultTab);
     }
-  }, [open, defaultTab])
+  }, [open, defaultTab]);
 
   if(!open) return null;
 
