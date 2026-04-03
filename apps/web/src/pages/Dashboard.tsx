@@ -125,7 +125,7 @@ interface ConnectBankProps {
 // }
 
 
-export default function ConnectBank({ institutionId, onSuccess: onSuccessCallback }: ConnectBankProps) {
+export default function ConnectBank({ onSuccess: onSuccessCallback }: ConnectBankProps) {
   const [linkToken, setLinkToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
