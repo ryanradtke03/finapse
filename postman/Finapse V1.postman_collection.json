@@ -1,10 +1,10 @@
 {
   "info": {
-    "_postman_id": "ae79e268-86f1-4449-afc8-5a8908ac5dcc",
+    "_postman_id": "24f91be6-8f5b-4e62-84d8-993b3be461d3",
     "name": "Finapse V1",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "52590935",
-    "_collection_link": "https://go.postman.co/collection/52590935-ae79e268-86f1-4449-afc8-5a8908ac5dcc?source=collection_link"
+    "_collection_link": "https://go.postman.co/collection/52590935-24f91be6-8f5b-4e62-84d8-993b3be461d3?source=collection_link"
   },
   "item": [
     {
@@ -17,7 +17,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"email\": \"test@test.com\",\n    \"password\": \"password123\"\n}",
+              "raw": "{\n    \"email\": \"test@test.com\",\n    \"password\": \"password123\", \n    \"fullName\": \"testUser\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -202,20 +202,140 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Remove Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/plaid/item/b397553b-3976-499e-96fd-27331b4d40a8",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "plaid",
+                "item",
+                "b397553b-3976-499e-96fd-27331b4d40a8"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/plaid/account/b397553b-3976-499e-96fd-27331b4d40a8",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "plaid",
+                "account",
+                "b397553b-3976-499e-96fd-27331b4d40a8"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
     {
-      "name": "Recipies (Depricated)",
+      "name": "Transaction",
       "item": [
         {
-          "name": "Create Recipie",
+          "name": "Get Transaction List",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/transaction",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "transaction"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/transaction/:id",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "transaction",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "10f19b63-d8d2-4326-a3b9-85b68057efb6"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transaction Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseURL}}/transaction/summary?startDate=2026-03-01&endDate=2026-04-01",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "transaction",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-03-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-04-01"
+                },
+                {
+                  "key": "accountId",
+                  "value": null,
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Budget",
+      "item": [
+        {
+          "name": "Create Budget",
           "request": {
             "method": "POST",
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Recipie to delete\",\n  \"description\": \"Creamy garlic butter chicken pasta with parmesan.\",\n  \"servings\": 4,\n  \"prepTimeMin\": 15,\n  \"cookTimeMin\": 25,\n  \"ingredients\": [\n    {\n      \"name\": \"Chicken Breast\",\n      \"amount\": \"2 large\"\n    },\n    {\n      \"name\": \"Pasta\",\n      \"amount\": \"250g\"\n    },\n    {\n      \"name\": \"Garlic\",\n      \"amount\": \"3 cloves\"\n    },\n    {\n      \"name\": \"Butter\",\n      \"amount\": \"2 tbsp\"\n    },\n    {\n      \"name\": \"Heavy Cream\",\n      \"amount\": \"1 cup\"\n    },\n    {\n      \"name\": \"Parmesan Cheese\",\n      \"amount\": \"1/2 cup\"\n    },\n    {\n      \"name\": \"Salt\",\n      \"amount\": \"to taste\"\n    },\n    {\n      \"name\": \"Black Pepper\",\n      \"amount\": \"to taste\"\n    }\n  ],\n  \"steps\": [\n    {\n      \"order\": 1,\n      \"title\": \"Boil Pasta\",\n      \"instructions\": \"Bring a large pot of salted water to a boil and cook pasta according to package instructions.\"\n    },\n    {\n      \"order\": 2,\n      \"title\": \"Cook Chicken\",\n      \"instructions\": \"Season chicken with salt and pepper, then cook in butter over medium heat until golden and cooked through.\"\n    },\n    {\n      \"order\": 3,\n      \"title\": \"Prepare Sauce\",\n      \"instructions\": \"Add minced garlic to the pan and cook until fragrant. Pour in heavy cream and simmer for 5 minutes.\"\n    },\n    {\n      \"order\": 4,\n      \"title\": \"Combine\",\n      \"instructions\": \"Stir in parmesan cheese until melted. Add drained pasta and toss to coat evenly.\"\n    },\n    {\n      \"order\": 5,\n      \"title\": \"Serve\",\n      \"instructions\": \"Plate and garnish with additional parmesan and fresh parsley if desired.\"\n    }\n  ]\n}",
+              "raw": "{\n  \"category\": \"Food and Drink\",\n  \"limitAmount\": \"500.00\",\n  \"periodStart\": \"2026-04-01\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -223,112 +343,25 @@
               }
             },
             "url": {
-              "raw": "{{baseURL}}/recipies/",
+              "raw": "{{baseURL}}/budget",
               "host": [
                 "{{baseURL}}"
               ],
               "path": [
-                "recipies"
+                "budget"
               ]
             }
           },
           "response": []
         },
         {
-          "name": "List Recipies",
-          "protocolProfileBehavior": {
-            "disableBodyPruning": true
-          },
-          "request": {
-            "method": "GET",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/list",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies",
-                "list"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Recipie by Id",
-          "protocolProfileBehavior": {
-            "disableBodyPruning": true
-          },
-          "request": {
-            "method": "GET",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/a511d6a7-b77f-49e0-b422-e242528c4785",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies",
-                "a511d6a7-b77f-49e0-b422-e242528c4785"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Recipie",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/5bf7d40d-476b-4e6a-93c4-780692300cbd",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies",
-                "5bf7d40d-476b-4e6a-93c4-780692300cbd"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Recipie",
+          "name": "Update Budget",
           "request": {
             "method": "PUT",
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "",
+              "raw": "{\n  \"limitAmount\": \"750.00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -336,13 +369,117 @@
               }
             },
             "url": {
-              "raw": "{{baseURL}}/recipies/a511d6a7-b77f-49e0-b422-e242528c4785",
+              "raw": "{{baseURL}}/budget/:id",
               "host": [
                 "{{baseURL}}"
               ],
               "path": [
-                "recipies",
-                "a511d6a7-b77f-49e0-b422-e242528c4785"
+                "budget",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "872be45f-1079-42cd-85ef-f2845f389e56"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Budget",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Food and Drink\",\n  \"limitAmount\": \"500.00\",\n  \"periodStart\": \"2026-04-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/budget",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "budget"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Budget",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Food and Drink\",\n  \"limitAmount\": \"500.00\",\n  \"periodStart\": \"2026-04-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/budget/:id",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "budget",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "04d67f51-2608-425d-81cc-c33eef9344f9"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Budget",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Food and Drink\",\n  \"limitAmount\": \"500.00\",\n  \"periodStart\": \"2026-04-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/budget/:id",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "budget",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "04d67f51-2608-425d-81cc-c33eef9344f9"
+                }
               ]
             }
           },

@@ -85,6 +85,8 @@ export async function deleteItem(
     const {id} = req.params;
 
     await deletePlaidItem(userId, id);
+
+    res.status(200).json({ success: true });
   }catch(err){
     next(err)
   }
