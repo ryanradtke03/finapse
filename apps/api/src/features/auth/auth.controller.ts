@@ -27,15 +27,13 @@ export async function register(
 ) {
   try {
     const parsed = registerSchema.parse(req.body);
-    const user = await registerUser(parsed);
+    await registerUser(parsed);
+
+    const result = await loginUser({ email: parsed.email, password: parsed.password });
+    setAuthCookie(res, result.cookie.value);
 
     return res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        createdAt: user.createdAt,
-      },
+      user: result.user,
     });
   } catch (err) {
     return next(err);

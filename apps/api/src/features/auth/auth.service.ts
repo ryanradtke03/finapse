@@ -76,9 +76,9 @@ export async function loginUser(input: LoginInput): Promise<{
   const expiresIn: jwt.SignOptions["expiresIn"] = (process.env.JWT_EXPIRES_IN ??
     "7d") as jwt.SignOptions["expiresIn"];
 
-  const token = jwt.sign({ sub: user.id, email: user.email }, secret, {
-    expiresIn,
-  });
+  const token = jwt.sign({ sub: user.id, email: user.email, fullName: user.fullName }, secret, {
+      expiresIn,
+  })
 
   const isProd = process.env.NODE_ENV === "production";
 
