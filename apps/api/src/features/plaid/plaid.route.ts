@@ -5,6 +5,7 @@ import {
     deleteAccount,
     deleteItem,
     exchangePublicTokenHandler,
+    getAccounts,
     getItems,
     syncTransactionsHandler
 } from "./plaid.controller";
@@ -16,6 +17,8 @@ router.post("/exchange-token",             requireAuth, exchangePublicTokenHandl
 router.post("/sync/:itemId",               requireAuth, syncTransactionsHandler);
 router.get("/item" , requireAuth, getItems);
 router.delete("/item/:id", requireAuth, deleteItem);
+router.get("/account", requireAuth, getAccounts);
 router.delete("/account/:id", requireAuth, deleteAccount)
+
 
 export default router;

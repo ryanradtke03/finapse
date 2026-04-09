@@ -1,6 +1,7 @@
+import { type Account } from '@finapse/types';
 import { useEffect, useState } from 'react';
 import { useAuth } from "../context/AuthContext";
-import { useItems } from "../hooks/useItems";
+import { useAccounts, useItems } from "../hooks/usePlaid";
 import { getCachedGreeting, getDashboardGreeting, setCachedGreeting } from "../utils/dashboardMessage";
 import logger from "../utils/logger";
 
@@ -9,6 +10,66 @@ type StatCardProps = {
   value: string;
   insight: string;
 }
+
+type DashboardData = {
+  netWorth: number | null;
+  netWorthChange: number | null;
+  checkingBalance: number | null;
+  checkingLast4: string | null;
+  savingsBalance: number | null;
+  savingsLast4: string | null;
+  creditUsed: number | null;
+  creditLimit: number | null;
+  monthlySpending: number | null;
+  spendingChange: number | null;
+}
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+
+const cardConfig = [
+  {
+    title: 'Net Worth',
+    condition: (data: DashboardData) => data.netWorth !== null,
+    getValue: (data: DashboardData) => formatCurrency(data.netWorth!),
+    getInsight: (data: DashboardData) => {
+      if (!data.netWorthChange) return '—';
+      const sign = data.netWorthChange >= 0 ? '+' : '';
+      return `${sign}${formatCurrency(data.netWorthChange)} this month`;
+    },
+  },
+  {
+    title: 'Checking',
+    condition: (data: DashboardData) => data.checkingBalance !== null,
+    getValue: (data: DashboardData) => formatCurrency(data.checkingBalance!),
+    getInsight: (data: DashboardData) => data.checkingLast4 ? `**${data.checkingLast4}` : '—',
+  },
+  {
+    title: 'Savings',
+    condition: (data: DashboardData) => data.savingsBalance !== null,
+    getValue: (data: DashboardData) => formatCurrency(data.savingsBalance!),
+    getInsight: (data: DashboardData) => data.savingsLast4 ? `**${data.savingsLast4}` : '—',
+  },
+  {
+    title: 'Credit Used',
+    condition: (data: DashboardData) => data.creditUsed !== null && data.creditLimit !== null,
+    getValue: (data: DashboardData) => formatCurrency(data.creditUsed!),
+    getInsight: (data: DashboardData) => {
+      const pct = Math.round((data.creditUsed! / data.creditLimit!) * 100);
+      return `${pct}% of limit`;
+    },
+  },
+  {
+    title: 'Monthly Spending',
+    condition: (data: DashboardData) => data.creditUsed === null && data.monthlySpending !== null,
+    getValue: (data: DashboardData) => formatCurrency(data.monthlySpending!),
+    getInsight: (data: DashboardData) => {
+      if (!data.spendingChange) return '—';
+      const sign = data.spendingChange >= 0 ? '+' : '';
+      return `${sign}${formatCurrency(data.spendingChange)} vs last month`;
+    },
+  },
+];
 
 const StatCard = ({ title, value, insight }: StatCardProps) => {
   return (
@@ -38,76 +99,108 @@ const LoadingState = () => {
         />
       ))}
     </>
-
   );
 }
 
-export default function Dashboard(){
-
+export default function Dashboard() {
   const today = new Date();
   const month = today.toLocaleString('default', { month: 'long' }).toLocaleUpperCase();
   const year = today.getFullYear();
 
-  const { data: items, isLoading, refetch } = useItems()
-  const { user } = useAuth()
+  const { data: items, isLoading: itemsLoading } = useItems();
+  const { data: accounts, isLoading: accountsLoading } = useAccounts();
+  const { user } = useAuth();
   const [greeting, setGreeting] = useState<{ greeting: string; saying: string } | null>(null);
 
-
-
-
+  const isLoading = itemsLoading || accountsLoading;
 
   useEffect(() => {
     if (!items || !user) return;
-  
     const cached = getCachedGreeting();
-    if (cached) {
-      setGreeting(cached);
-      return;
-    }
-  
+    if (cached) { setGreeting(cached); return; }
     const fresh = getDashboardGreeting(items, user);
     setCachedGreeting(fresh.greeting, fresh.saying);
     setGreeting(fresh);
   }, [items, user]);
 
   useEffect(() => {
-    logger.info("Items",items)
-  })
+    logger.info("Accounts", accounts);
+  });
 
+  // Build dashboardData from real accounts
+  const dashboardData: DashboardData = (() => {
+    if (!accounts) return {
+      netWorth: null, netWorthChange: null,
+      checkingBalance: null, checkingLast4: null,
+      savingsBalance: null, savingsLast4: null,
+      creditUsed: null, creditLimit: null,
+      monthlySpending: null, spendingChange: null,
+    };
 
-  
-  
-  return(
+    const checking = accounts.find((a: Account) => a.subtype === 'checking');
+    const savings = accounts.find((a: Account) => a.subtype === 'savings');
+    const credit = accounts.find((a: Account) => a.type === 'credit');
+    
+    const depositoryTotal = accounts
+      .filter((a: Account) => a.type === 'depository')
+      .reduce((sum: number, a: Account) => sum + Number(a.balanceCurrent ?? 0), 0);
+
+    const creditBalance = credit?.balanceCurrent ?? null;
+    const creditLimit = credit?.balanceAvailable != null && creditBalance != null
+      ? creditBalance + credit!.balanceAvailable
+      : null;
+
+    return {
+      netWorth: depositoryTotal - (creditBalance ?? 0),
+      netWorthChange: null, // wire up from transaction summary later
+      checkingBalance: checking?.balanceCurrent ?? null,
+      checkingLast4: checking?.mask ?? null,
+      savingsBalance: savings?.balanceCurrent ?? null,
+      savingsLast4: savings?.mask ?? null,
+      creditUsed: creditBalance,
+      creditLimit,
+      monthlySpending: null, // wire up from transaction summary later
+      spendingChange: null,
+    };
+  })();
+
+  const visibleCards = cardConfig
+    .filter(card => card.condition(dashboardData))
+    .slice(0, 4);
+
+  return (
     <div className="flex flex-col justify-center items-center text-brand-text pt-8">
-    {/* Header */}
-    <div className="self-start flex flex-col pl-8">
-      <div>
-        <span className='text-brand-green font-semibold tracking-widest text-xs'>{month} {year}</span>
+      {/* Header */}
+      <div className="self-start flex flex-col pl-8">
+        <div>
+          <span className='text-brand-green font-semibold tracking-widest text-xs'>{month} {year}</span>
+        </div>
+        {greeting && (
+          <>
+            <div className='pt-2'>
+              <span className='text-brand-text font-extrabold tracking-tight text-4xl'>{greeting.greeting}</span>
+            </div>
+            <div className='pt-1'>
+              <span className='text-brand-text-hint font-medium'>{greeting.saying}</span>
+            </div>
+          </>
+        )}
       </div>
-      {greeting && (
-        <>
-          <div className='pt-2'>
-            <span className='text-brand-text font-extrabold tracking-tight text-4xl'>{greeting.greeting}</span>
-          </div>
-          <div className='pt-1'>
-            <span className='text-brand-text-hint font-medium'>{greeting.saying}</span>
-          </div>
-        </>
-      )}
-    </div>
 
       {/* Snapshot cards */}
-      <div className='flex flex-row items-center gap-16 w-full px-8 mt-8'>
+      <div className='flex flex-row items-center gap-4 w-full px-8 mt-8'>
         {isLoading ? (
-          <LoadingState/>
+          <LoadingState />
         ) : (
-          <>
-          <StatCard title="Net Worth" value="$24,830" insight="+$340 this month" />
-          <StatCard title="Checking" value="$4,210" insight="Chase **4621" />
-          <StatCard title="Savings" value="$18,400" insight="Chase **2100" />
-          <StatCard title="Credit used" value="$2,220" insight="64% of limit" />
-          </>
-        )}    
+          visibleCards.map(card => (
+            <StatCard
+              key={card.title}
+              title={card.title}
+              value={card.getValue(dashboardData)}
+              insight={card.getInsight(dashboardData)}
+            />
+          ))
+        )}
       </div>
 
       {/* Feature Cards */}
@@ -115,7 +208,6 @@ export default function Dashboard(){
     </div>
   );
 }
-
 
 
 // import { useCallback, useEffect, useRef, useState } from "react"

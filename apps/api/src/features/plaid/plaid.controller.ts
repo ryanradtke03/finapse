@@ -4,8 +4,9 @@ import {
   deletePlaidAccount,
   deletePlaidItem,
   exchangePublicToken,
+  getAccountsService,
   getItemsService,
-  syncTransactions,
+  syncTransactions
 } from "./plaid.service";
 
 export async function createLinkTokenHandler(
@@ -104,6 +105,20 @@ export async function deleteAccount(
     await deletePlaidAccount(userId, id);
 
     res.status(200).json({ message: 'Account removed successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAccounts(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const accounts = await getAccountsService(userId);
+    res.json(accounts);
   } catch (err) {
     next(err);
   }

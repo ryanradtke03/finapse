@@ -100,3 +100,17 @@ export const deleteAccount = async (accountId: string): Promise<{ message: strin
 
   return res.json();
 };
+
+export const getAccounts = async () => {
+  const res = await fetch(`${apiBaseUrl}/plaid/account`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw error
+  }
+
+  return res.json()
+}

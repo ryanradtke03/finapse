@@ -519,3 +519,39 @@ import { plaidClient } from "../../lib/plaidClient";
       where: { id: account.id },
     });
   }
+
+  export async function getAccountsService(userId: string) {
+    const accounts = await prisma.account.findMany({
+      where: {
+        plaidItem: { userId },
+      },
+      select: {
+        id: true,
+        name: true,
+        mask: true,
+        type: true,
+        subtype: true,
+        balanceCurrent: true,
+        balanceAvailable: true,
+        isoCurrencyCode: true,
+        plaidItem: {
+          select: {
+            institutionName: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  
+  
+    if (!accounts) {
+      throw Object.assign(new Error('No accounts found'), { status: 404 });
+    }
+  
+    return accounts.map(a => ({
+      ...a,
+      balanceCurrent: a.balanceCurrent ? Number(a.balanceCurrent) : null,
+      balanceAvailable: a.balanceAvailable ? Number(a.balanceAvailable) : null,
+    }));
+  }
