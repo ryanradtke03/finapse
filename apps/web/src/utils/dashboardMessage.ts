@@ -1,6 +1,6 @@
 import type { PlaidItem, User } from "@finapse/types";
 
-export const DASHBOARD_MESSAGES = {
+const DASHBOARD_MESSAGES = {
     timeOfDay: {
       morning: [
         { greeting: "Morning, {name}.", saying: "Here's where things stand." },
@@ -79,7 +79,7 @@ export const DASHBOARD_MESSAGES = {
 // Fun ones like a lot spent on groceries ect 
 
 const GRETTING_KEY = 'finapse_greeting';
-const GREETING_TTL_MS = 30 * 60 * 1000;
+const GREETING_TTL_MS = 1; //10 * 60 * 1000;
 const ROLL_THRESHOLD = 0.10;
 
 interface CachedGretting {
@@ -103,7 +103,7 @@ interface GreetingContext {
 type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'late_night'
 
 
-export function getDashboardGretting(
+export function getDashboardGreeting(
     items: PlaidItem[],
     //accounts: Account[],
     user: User,
@@ -202,12 +202,12 @@ function applyTokens(greeting: Greeting, ctx: GreetingContext): Greeting {
 
 
 
-export function setCachedGretting(greeting: string, saying: string): void {
+export function setCachedGreeting(greeting: string, saying: string): void {
     const payload: CachedGretting = {greeting, saying, cachedAt: Date.now()};
     sessionStorage.setItem(GRETTING_KEY, JSON.stringify(payload));
 }
 
-export function getCachedGretting(): CachedGretting | null{
+export function getCachedGreeting(): CachedGretting | null{
     try{
         const raw = sessionStorage.getItem(GRETTING_KEY);
         if(!raw) return null;
