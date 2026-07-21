@@ -97,6 +97,7 @@ export const googleAuthCallback = [
       { expiresIn: "7d" } // match whatever you use elsewhere
     );
     setAuthCookie(res, token);
-    res.redirect("http://localhost:5173/dashboard");
+    const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
+    res.redirect(`${clientOrigin}/dashboard`);
   },
 ];

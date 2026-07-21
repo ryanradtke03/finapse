@@ -1,34 +1,56 @@
 import type { User } from "@finapse/types";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { logout as logoutRequest, me as fetchMe } from "../api/auth";
 
 const AuthContext = createContext<{
   user: User | null;
+  loading: boolean;
   login: (userData: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }>({
   user: null,
+  loading: true,
   login: () => {},
-  logout: () => {},
+  logout: async () => {},
+  refresh: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? (JSON.parse(storedUser) as User) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Source of truth is the httpOnly session cookie, not localStorage —
+  // the only way to know "am I logged in" is to ask the server.
+  const refresh = async () => {
+    try {
+      const { user: current } = await fetchMe();
+      setUser(current);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   const login = (userData: User) => {
     setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
+  const logout = async () => {
+    try {
+      await logoutRequest();
+    } finally {
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { googleAuthUrl, login, register } from "../api/auth";
+import { googleAuthUrl, login as loginRequest, register as registerRequest } from "../api/auth";
 import { FullLogo } from "../components/Logo";
+import { useAuth } from "../context/AuthContext";
 import { loginSchema, signupSchema } from "../schemas/auth";
 import logger from "../utils/logger";
 
@@ -35,6 +36,7 @@ function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
 
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -75,8 +77,9 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     }
 
     try {
-      const res = await login(email, password);
+      const res = await loginRequest(email, password);
       logger.debug("Res:", { res });
+      login(res.user);
       navigate("/Dashboard");
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -139,6 +142,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 
 function SignupForm({ onSwitch }: { onSwitch: () => void }) {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -191,8 +195,12 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
     }
 
     try {
-      const res = await register(email, password, fullName);
+      const res = await registerRequest(email, password, fullName);
       logger.debug("Res:", { res });
+      // Register doesn't set a session cookie on its own — log in right
+      // after so the user actually ends up with a valid session.
+      const loginRes = await loginRequest(email, password);
+      login(loginRes.user);
       navigate("/Dashboard");
     } catch (error: unknown) {
       if (error instanceof Error) {
