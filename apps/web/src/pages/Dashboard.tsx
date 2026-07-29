@@ -1,7 +1,190 @@
-export default function Dashboard() {
-  return <h1>Dashboard</h1>;
+import { useState } from "react";
+import type { TransactionFilters } from "../api/transactions";
+import { useItems } from "../hooks/useItems";
+import {
+  useTransactions,
+  useTransactionSummary,
+} from "../hooks/useTransactions";
+
+// time-frame presets → concrete date range
+function presetRange(preset: string): { startDate: string; endDate: string } {
+  const end = new Date();
+  const start = new Date();
+  if (preset === "7d") start.setDate(end.getDate() - 7);
+  else if (preset === "30d") start.setDate(end.getDate() - 30);
+  else if (preset === "month") start.setDate(1);
+  else if (preset === "3m") start.setMonth(end.getMonth() - 3);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { startDate: iso(start), endDate: iso(end) };
 }
 
+export default function Dashboard() {
+  const [filters, setFilters] = useState<TransactionFilters>(
+    presetRange("30d"),
+  );
+  const [chartMode, setChartMode] = useState<"total" | "category" | "avg">(
+    "total",
+  );
+
+  const items = useItems();
+  const summary = useTransactionSummary(filters);
+  const list = useTransactions({ ...filters, limit: 10 });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const accounts = items.data?.flatMap((i: any) => i.accounts) ?? [];
+  const categories = summary.data?.byCategory ?? [];
+
+  function setFilter<K extends keyof TransactionFilters>(
+    key: K,
+    value: TransactionFilters[K],
+  ) {
+    setFilters((prev) => ({ ...prev, [key]: value || undefined }));
+  }
+
+  function applyPreset(preset: string) {
+    setFilters((prev) => ({ ...prev, ...presetRange(preset) }));
+  }
+
+  const spent = summary.data?.totalSpent ?? 0;
+  const income = summary.data?.totalIncome ?? 0;
+  const net = income - spent; // client-side until backend returns `net`
+
+  const days =
+    filters.startDate && filters.endDate
+      ? Math.max(
+          1,
+          (new Date(filters.endDate).getTime() -
+            new Date(filters.startDate).getTime()) /
+            86400000,
+        )
+      : 30;
+
+  return (
+    <div
+      style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}
+    >
+      {/* filters */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <select
+          value={filters.accountId ?? ""}
+          onChange={(e) => setFilter("accountId", e.target.value)}
+        >
+          <option value="">All accounts</option>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any*/}
+          {accounts.map((a: any) => (
+            <option key={a.id} value={a.id}>
+              {a.name} {a.mask ? `··${a.mask}` : ""}
+            </option>
+          ))}
+        </select>
+
+        <select
+          defaultValue="30d"
+          onChange={(e) => applyPreset(e.target.value)}
+        >
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="month">This month</option>
+          <option value="3m">Last 3 months</option>
+        </select>
+
+        <select
+          value={filters.category ?? ""}
+          onChange={(e) => setFilter("category", e.target.value)}
+        >
+          <option value="">All categories</option>
+          {categories.map((c) => (
+            <option key={c.category} value={c.category}>
+              {c.category}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* summary strip */}
+      <div style={{ display: "flex", gap: 12 }}>
+        {[
+          ["Spending", spent],
+          ["Income", income],
+          ["Net", net],
+        ].map(([label, value]) => (
+          <div
+            key={label as string}
+            style={{
+              flex: 1,
+              padding: 16,
+              border: "1px solid #ccc",
+              borderRadius: 8,
+            }}
+          >
+            <div style={{ fontSize: 12, opacity: 0.6 }}>{label}</div>
+            <div style={{ fontSize: 24 }}>${Number(value).toFixed(2)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* chart-mode toggle + graph area */}
+      <div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          {(["total", "category", "avg"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setChartMode(m)}
+              style={{ fontWeight: chartMode === m ? 700 : 400 }}
+            >
+              {m === "total"
+                ? "Total"
+                : m === "category"
+                  ? "By category"
+                  : "Avg / day"}
+            </button>
+          ))}
+        </div>
+
+        <div
+          style={{ padding: 16, border: "1px dashed #ccc", borderRadius: 8 }}
+        >
+          {chartMode === "total" && (
+            <p>[ spending-over-time chart — needs byDay from backend ]</p>
+          )}
+          {chartMode === "category" &&
+            categories.map((c) => (
+              <div
+                key={c.category}
+                style={{ display: "flex", justifyContent: "space-between" }}
+              >
+                <span>{c.category}</span>
+                <span>${c.total.toFixed(2)}</span>
+              </div>
+            ))}
+          {chartMode === "avg" && (
+            <p>Avg spend / day: ${(spent / days).toFixed(2)}</p>
+          )}
+        </div>
+      </div>
+
+      {/* recent transactions */}
+      <div>
+        <h3>Recent transactions</h3>
+        {list.isLoading && <p>Loading…</p>}
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any*/}
+        {list.data?.transactions.map((t: any) => (
+          <div
+            key={t.id}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "4px 0",
+            }}
+          >
+            <span>{t.merchantName ?? t.name}</span>
+            <span>${Number(t.amount).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 // import { useCallback, useEffect, useRef, useState } from "react"
 // import type { PlaidLinkOnExit, PlaidLinkOnSuccess } from "react-plaid-link"
 // import { usePlaidLink } from "react-plaid-link"
