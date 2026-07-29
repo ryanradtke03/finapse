@@ -333,6 +333,14 @@ export function AuthModal({
   defaultTab?: "login" | "signup";
 }) {
   const [activeTab, setActiveTab] = useState<"login" | "signup">(defaultTab);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  // Reset the tab to defaultTab each time the modal transitions to open.
+  // Done during render (not in an effect) to avoid an extra render pass.
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setActiveTab(defaultTab);
+  }
 
   if (!open) return null;
 
@@ -359,14 +367,14 @@ export function AuthModal({
             <button
               type="button"
               onClick={() => setActiveTab("login")}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium text-color-brand-text cursor-pointer ${activeTab === "login" ? "bg-brand-tab-active" : ""}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium text-brand-text cursor-pointer ${activeTab === "login" ? "bg-brand-tab-active" : ""}`}
             >
               Log in
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("signup")}
-              className={`flex-1 py-2 rounded-lg text-sm text--color-brand-text-hint hover:text-color-brand-text cursor-pointer ${activeTab === "signup" ? "bg-brand-tab-active" : ""}`}
+              className={`flex-1 py-2 rounded-lg text-sm text-brand-text-hint hover:text-brand-text cursor-pointer ${activeTab === "signup" ? "bg-brand-tab-active" : ""}`}
             >
               Sign up
             </button>

@@ -1,9 +1,24 @@
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/accounts": "Accounts",
+  "/transactions": "Transactions",
+  "/settings": "Settings",
+};
 
 export default function Header() {
   const { user } = useAuth();
+  const location = useLocation();
+  const title = PAGE_TITLES[location.pathname] ?? "Finapse";
+
   return (
     <header
+      className={`
+        bg-brand-bg
+
+        `}
       style={{
         height: 64,
         borderBottom: "1px solid #272727",
@@ -14,7 +29,8 @@ export default function Header() {
         color: "#f4f4f5",
       }}
     >
-      <span>{user?.name ?? "Account"}</span>
+      <span>{title}</span>
+      <span>{user?.fullName ?? "Account"}</span>
     </header>
   );
 }
