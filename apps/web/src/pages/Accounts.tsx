@@ -1,3 +1,4 @@
+import { Avatar } from "../components/ui/Avatar";
 import { useItems } from "../hooks/useItems";
 
 export default function Accounts() {
@@ -6,6 +7,7 @@ export default function Accounts() {
   return (
     <div style={{ padding: 24 }}>
       <h2>Accounts</h2>
+      <Avatar name="John Doe" size="lg" className="mb-4" />
 
       {q.isLoading && <p>Loading…</p>}
       {q.isError && <p>Couldn't load accounts.</p>}
