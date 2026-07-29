@@ -5,6 +5,7 @@ import { requireEnv } from "../config/env";
 type JwtPayload = {
   sub: string; // user id
   email: string;
+  fullName?: string;
 };
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -26,6 +27,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     req.user = {
       id: userId,
       email: typeof decode.email === "string" ? decode.email : "",
+      fullName: typeof decode.fullName === "string" ? decode.fullName : undefined,
     };
 
     return next();

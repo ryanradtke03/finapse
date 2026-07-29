@@ -90,9 +90,9 @@ export const googleAuth = passport.authenticate("google", {scope: ["email", "pro
 export const googleAuthCallback = [
   passport.authenticate("google", { session: false, failureRedirect: "/login" }),
   (req: Request, res: Response) => {
-    const user = req.user as { id: string; email: string };
+    const user = req.user as { id: string; email: string; fullName: string };
     const token = jwt.sign(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, fullName: user.fullName },
       process.env.JWT_SECRET!,
       { expiresIn: "7d" } // match whatever you use elsewhere
     );
