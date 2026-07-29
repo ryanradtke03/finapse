@@ -557,6 +557,8 @@ export async function getItemsService(userId: string) {
           mask: true,
           type: true,
           subtype: true,
+          balanceCurrent: true,
+          isoCurrencyCode: true,
         },
       },
     },
