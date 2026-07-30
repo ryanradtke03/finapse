@@ -1,10 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { Budget } from "../api/budgets";
 import { createBudget, deleteBudget, updateBudget } from "../api/budgets";
 import { BudgetModal } from "../components/BudgetModal";
 import { useBudgets } from "../hooks/useBudgets";
-import { getCategoryLabel } from "../lib/budgetCategories";
+import {
+  getTransactionCategoryColor,
+  getTransactionCategoryLabel,
+} from "../lib/transactionCategories";
 import { useTransactionSummary } from "../hooks/useTransactions";
 import logger from "../utils/logger";
 
@@ -66,13 +69,21 @@ export default function Budgets() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["budgets"] });
 
-  const spentByCategory = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of summaryQuery.data?.byCategory ?? []) {
-      map.set(row.category, row.total);
-    }
-    return map;
-  }, [summaryQuery.data]);
+  // byCategory rows are keyed by detailed category. A budget stored at the
+  // primary level (e.g. old budgets created before this was detailed, or
+  // just "FOOD_AND_DRINK" as a broad catch-all) needs every detailed row
+  // under that bucket summed, not a single exact-key lookup — mirrors the
+  // backend's buildDetailedCategoryWhere primary-fallback semantics.
+  const byCategoryRows = summaryQuery.data?.byCategory ?? [];
+  function spentForCategory(budgetCategory: string): number {
+    return byCategoryRows
+      .filter(
+        (row) =>
+          row.category === budgetCategory ||
+          row.category.startsWith(`${budgetCategory}_`),
+      )
+      .reduce((sum, row) => sum + row.total, 0);
+  }
 
   const budgets = budgetsQuery.data ?? [];
   const totalBudgeted = budgets.reduce((sum, b) => sum + Number(b.limitAmount), 0);
@@ -101,7 +112,8 @@ export default function Budgets() {
   };
 
   const handleDelete = async (budget: Budget) => {
-    if (!confirm(`Delete the "${getCategoryLabel(budget.category)}" budget?`)) return;
+    if (!confirm(`Delete the "${getTransactionCategoryLabel(budget.category)}" budget?`))
+      return;
     try {
       await deleteBudget(budget.id);
       await invalidate();
@@ -168,7 +180,7 @@ export default function Budgets() {
 
           <div className="grid grid-cols-3 gap-4">
             {budgets.map((b) => {
-              const spent = spentByCategory.get(b.category) ?? 0;
+              const spent = spentForCategory(b.category);
               const limit = Number(b.limitAmount);
               const percent = limit > 0 ? (spent / limit) * 100 : 0;
               const over = spent - limit;
@@ -180,8 +192,12 @@ export default function Budgets() {
                   className="rounded-xl border border-brand-border bg-brand-surface p-5"
                 >
                   <div className="flex items-start justify-between">
-                    <h3 className="font-semibold text-brand-text">
-                      {getCategoryLabel(b.category)}
+                    <h3 className="flex items-center gap-2 font-semibold text-brand-text">
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: getTransactionCategoryColor(b.category) }}
+                      />
+                      {getTransactionCategoryLabel(b.category)}
                     </h3>
                     <div className="flex items-center gap-3 text-brand-text-secondary">
                       <button

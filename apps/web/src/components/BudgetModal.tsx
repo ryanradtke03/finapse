@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Budget } from "../api/budgets";
-import { BUDGET_CATEGORIES, getCategoryLabel } from "../lib/budgetCategories";
+import { BUDGET_CATEGORIES } from "../lib/budgetCategories";
+import { getTransactionCategoryLabel } from "../lib/transactionCategories";
 
 interface BudgetModalProps {
   open: boolean;
@@ -22,6 +23,18 @@ export function BudgetModal({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [prevOpen, setPrevOpen] = useState(open);
+
+  // Grouped once — same list every render, just bucketed by group for
+  // <optgroup> so the ~90 detailed categories are actually scannable.
+  const groupedCategories = useMemo(() => {
+    const groups = new Map<string, { value: string; label: string }[]>();
+    for (const c of BUDGET_CATEGORIES) {
+      const list = groups.get(c.group) ?? [];
+      list.push({ value: c.value, label: getTransactionCategoryLabel(c.value) });
+      groups.set(c.group, list);
+    }
+    return Array.from(groups.entries());
+  }, []);
 
   // Reset form fields to `initial` each time the modal opens (render-time
   // state adjustment, not an effect — see AuthModal for the same pattern).
@@ -86,15 +99,20 @@ export function BudgetModal({
               <option value="" disabled>
                 Select a category
               </option>
-              {BUDGET_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
+              {groupedCategories.map(([group, options]) => (
+                <optgroup key={group} label={group}>
+                  {options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
               {/* Preserve an existing custom/legacy category on edit even if
-                  it's not in the curated list above. */}
+                  it's not in the curated list above (e.g. a primary-level
+                  category from before this list went detailed). */}
               {category && !BUDGET_CATEGORIES.some((c) => c.value === category) && (
-                <option value={category}>{getCategoryLabel(category)}</option>
+                <option value={category}>{getTransactionCategoryLabel(category)}</option>
               )}
             </select>
           </div>

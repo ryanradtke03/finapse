@@ -3,7 +3,13 @@ import * as jwt from "jsonwebtoken";
 import passport from "passport";
 import { z } from "zod";
 import { clearAuthCookie, setAuthCookie } from "./auth.cookies";
-import { loginUser, registerUser } from "./auth.service";
+import {
+  changeUserPassword,
+  deleteUserAccount,
+  getUserProfile,
+  loginUser,
+  registerUser,
+} from "./auth.service";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -14,6 +20,11 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
 });
 
 function httpError(status: number, message: string) {
@@ -35,6 +46,7 @@ export async function register(
         email: user.email,
         fullName: user.fullName,
         createdAt: user.createdAt,
+        hasPassword: user.passwordHash !== "",
       },
     });
   } catch (err) {
@@ -68,13 +80,9 @@ export async function me(req: Request, res: Response, next: NextFunction) {
       throw httpError(401, "Not authenticated");
     }
 
-    return res.status(200).json({
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        fullName: req.user.fullName,
-      },
-    });
+    const user = await getUserProfile(req.user.id);
+
+    return res.status(200).json({ user });
   } catch (err) {
     return next(err);
   }
@@ -83,6 +91,43 @@ export async function me(req: Request, res: Response, next: NextFunction) {
 export async function logout(_req: Request, res: Response) {
   clearAuthCookie(res);
   return res.status(204).send();
+}
+
+export async function changePassword(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) throw httpError(401, "Not authenticated");
+
+    const parsed = changePasswordSchema.parse(req.body);
+    await changeUserPassword(req.user.id, parsed.currentPassword, parsed.newPassword);
+
+    return res.status(200).json({ message: "Password updated" });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return next(httpError(400, "Invalid request body"));
+    }
+    return next(err);
+  }
+}
+
+export async function deleteAccount(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) throw httpError(401, "Not authenticated");
+
+    await deleteUserAccount(req.user.id);
+    clearAuthCookie(res);
+
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
 }
 
 export const googleAuth = passport.authenticate("google", {scope: ["email", "profile"]});

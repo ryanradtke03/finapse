@@ -70,24 +70,15 @@ export async function getTransactionsList(params: GetTransactionsParams) {
   return { transactions, nextCursor };
 }
 
-// Single-category, primary-level match. Used only by getTransactionSummary
-// (Dashboard/Budgets), which intentionally stays at the coarser primary
-// category level — do not widen this without checking those callers.
-function buildCategoryWhere(category: string): Prisma.TransactionWhereInput {
-  // effective category = userCategory if set, else personalFinanceCategory
-  return {
-    OR: [
-      { userCategory: category },
-      { userCategory: null, personalFinanceCategory: category },
-    ],
-  };
-}
-
-// Multi-select, detailed-level match used by the Transactions page. Falls
-// back to the primary category for older rows synced before
-// personalFinanceCategoryDetail was populated. A "SUBSCRIPTION" value is a
-// sentinel matched against the heuristic recurringIds set rather than a
-// stored column.
+// Detailed-level match, used by both the Transactions page (multi-select)
+// and getTransactionSummary (Dashboard/Budgets, single value wrapped in a
+// 1-element array). Falls back to the primary category for older rows
+// synced before personalFinanceCategoryDetail was populated, AND for
+// Budget.category values stored back when budgets were primary-level only
+// (e.g. "FOOD_AND_DRINK") — the primary-column branch below matches every
+// detailed row under that bucket, so old budgets keep working unchanged. A
+// "SUBSCRIPTION" value is a sentinel matched against the heuristic
+// recurringIds set rather than a stored column.
 function buildDetailedCategoryWhere(
   categories: string[],
   recurringIds: Set<string>,
@@ -185,8 +176,8 @@ async function getRecurringTransactionIds(userId: string): Promise<Set<string>> 
 }
 
 // Distinct effective categories across the user's transactions, for the
-// Transactions page's category filter. Detailed-level (unlike
-// getTransactionSummary's byCategory, which intentionally stays primary).
+// Transactions page's category filter. Detailed-level, same as
+// getTransactionSummary's byCategory.
 export async function getDistinctCategories(userId: string): Promise<string[]> {
   const [rows, recurringIds] = await Promise.all([
     prisma.transaction.findMany({
@@ -256,47 +247,63 @@ export async function updateTransactionCategory(
   });
 }
 
+// Effective category for one row, mirroring the frontend's
+// getEffectiveCategory (transactionCategories.ts) so Dashboard/Budgets group
+// spending the same way Transactions displays it: an explicit user override
+// always wins, then the recurring/subscription heuristic, then Plaid's
+// detailed category, then its primary category.
+function resolveEffectiveCategory(
+  row: {
+    id: string;
+    userCategory: string | null;
+    personalFinanceCategoryDetail: string | null;
+    personalFinanceCategory: string | null;
+  },
+  recurringIds: Set<string>,
+): string {
+  if (row.userCategory) return row.userCategory;
+  if (recurringIds.has(row.id)) return "SUBSCRIPTION";
+  return (
+    row.personalFinanceCategoryDetail ?? row.personalFinanceCategory ?? "UNCATEGORIZED"
+  );
+}
+
 export async function getTransactionSummary(params: GetSummaryParams) {
   const { userId, startDate, endDate, accountId, category } = params;
+
+  const recurringIds = await getRecurringTransactionIds(userId);
 
   const baseWhere: Prisma.TransactionWhereInput = {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category && buildCategoryWhere(category)),
+    ...(category && buildDetailedCategoryWhere([category], recurringIds)),
     amount: { gt: 0 },
   };
 
-  const withOverride = await prisma.transaction.groupBy({
-    by: ["userCategory"],
-    where: { ...baseWhere, userCategory: { not: null } },
-    _sum: { amount: true },
-    _count: { id: true },
-  });
-
-  const withPlaid = await prisma.transaction.groupBy({
-    by: ["personalFinanceCategory"],
-    where: { ...baseWhere, userCategory: null },
-    _sum: { amount: true },
-    _count: { id: true },
+  // Aggregated in JS rather than a Prisma groupBy — grouping by the
+  // *effective* category (override > subscription heuristic > detail >
+  // primary) isn't expressible as a single SQL groupBy since the heuristic
+  // lives outside the DB. Fine at personal-app transaction volumes, same
+  // tradeoff as getByDaySummary below.
+  const spendingRows = await prisma.transaction.findMany({
+    where: baseWhere,
+    select: {
+      id: true,
+      amount: true,
+      userCategory: true,
+      personalFinanceCategoryDetail: true,
+      personalFinanceCategory: true,
+    },
   });
 
   const merged = new Map<string, { total: number; count: number }>();
-
-  for (const row of withOverride) {
-    const key = row.userCategory ?? "UNCATEGORIZED";
-    merged.set(key, {
-      total: row._sum.amount?.toNumber() ?? 0,
-      count: row._count.id,
-    });
-  }
-
-  for (const row of withPlaid) {
-    const key = row.personalFinanceCategory ?? "UNCATEGORIZED";
+  for (const row of spendingRows) {
+    const key = resolveEffectiveCategory(row, recurringIds);
     const existing = merged.get(key);
     merged.set(key, {
-      total: (existing?.total ?? 0) + (row._sum.amount?.toNumber() ?? 0),
-      count: (existing?.count ?? 0) + row._count.id,
+      total: (existing?.total ?? 0) + row.amount.toNumber(),
+      count: (existing?.count ?? 0) + 1,
     });
   }
 
@@ -310,7 +317,7 @@ export async function getTransactionSummary(params: GetSummaryParams) {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category && buildCategoryWhere(category)),
+    ...(category && buildDetailedCategoryWhere([category], recurringIds)),
     amount: { lt: 0 },
   };
 

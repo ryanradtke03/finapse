@@ -17,7 +17,11 @@ import {
   useTransactions,
   useTransactionSummary,
 } from "../hooks/useTransactions";
-import { getCategoryLabel } from "../lib/budgetCategories";
+import {
+  getEffectiveCategory,
+  getTransactionCategoryColor,
+  getTransactionCategoryLabel,
+} from "../lib/transactionCategories";
 
 const TIME_FRAME_OPTIONS = [
   { value: "7d", label: "Last 7 days" },
@@ -183,7 +187,7 @@ export default function Dashboard() {
     { value: "", label: "All Categories" },
     ...allCategories.map((c) => ({
       value: c.category,
-      label: getCategoryLabel(c.category),
+      label: getTransactionCategoryLabel(c.category),
     })),
   ];
 
@@ -376,8 +380,12 @@ export default function Dashboard() {
                       key={c.category}
                       className="flex items-center justify-between border-b border-brand-border-subtle pb-3 last:border-0"
                     >
-                      <span className="text-sm text-brand-text">
-                        {getCategoryLabel(c.category)}
+                      <span className="flex items-center gap-2 text-sm text-brand-text">
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: getTransactionCategoryColor(c.category) }}
+                        />
+                        {getTransactionCategoryLabel(c.category)}
                       </span>
                       <span className="text-sm font-semibold text-brand-text">
                         {formatMoney(c.total)}
@@ -441,7 +449,7 @@ export default function Dashboard() {
                         {label}
                       </p>
                       <p className="text-xs text-brand-text-secondary">
-                        {getCategoryLabel(t.personalFinanceCategory ?? "OTHER")}
+                        {getTransactionCategoryLabel(getEffectiveCategory(t))}
                       </p>
                     </div>
                   </div>

@@ -1,83 +1,183 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { changePassword, deleteUserAccount } from "../api/auth";
+import { DeleteAccountModal } from "../components/DeleteAccountModal";
+import { Avatar } from "../components/ui/Avatar";
 import { useAuth } from "../context/AuthContext";
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 4h12M5 4V2h4l1 2M3 4l1 10h6l1-10" />
+    </svg>
+  );
+}
 
 export default function Settings() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwSubmitting, setPwSubmitting] = useState(false);
 
-  function handleChangePassword(e: React.FormEvent) {
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
+  const canChangePassword = user?.hasPassword ?? false;
+
+  async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: wire up to a change-password endpoint (doesn't exist yet)
+    setPwError("");
+    setPwSuccess(false);
+
+    if (newPassword.length < 8) {
+      setPwError("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError("New password and confirmation don't match");
+      return;
+    }
+
+    setPwSubmitting(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPwSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: unknown) {
+      const apiError = err as { error?: string };
+      setPwError(apiError?.error ?? "Something went wrong");
+    } finally {
+      setPwSubmitting(false);
+    }
   }
 
-  function handleDeleteAccount() {
-    // Intentionally does nothing yet — no delete endpoint wired up.
-    // TODO: confirm + call delete-account endpoint.
+  async function handleDeleteAccount() {
+    await deleteUserAccount();
+    await logout();
+    navigate("/");
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 640 }}>
-      <h2>Settings</h2>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-[1.6fr_1fr] gap-4">
+        {/* Profile */}
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-brand-text">Profile</h3>
+            <span className="text-xs text-brand-text-secondary">Read-only</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Avatar name={user?.fullName ?? "Account"} size="lg" />
+            <div>
+              <p className="font-semibold text-brand-text">{user?.fullName ?? "—"}</p>
+              <p className="text-sm text-brand-text-secondary">{user?.email ?? "—"}</p>
+              {!canChangePassword && (
+                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-indigo-500/15 px-2.5 py-1 text-xs font-medium text-indigo-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                  Signed in with Google
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
 
-      {/* Profile */}
-      <section style={{ margin: "24px 0" }}>
-        <h3>Profile</h3>
-        <p style={{ margin: 0 }}>{user?.fullName ?? "—"}</p>
-        <p style={{ margin: 0, color: "#888" }}>{user?.email ?? "—"}</p>
-      </section>
+        {/* Session */}
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+          <h3 className="mb-4 font-semibold text-brand-text">Session</h3>
+          <p className="text-sm text-brand-text-secondary">
+            You're signed in on this device.
+          </p>
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="mt-4 cursor-pointer rounded-lg border border-brand-border-subtle bg-brand-surface-raised px-4 py-2 text-sm font-semibold text-brand-text transition-colors duration-200 hover:border-brand-border"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
 
-      {/* Session */}
-      <section style={{ margin: "24px 0" }}>
-        <h3>Session</h3>
-        <p>You're signed in on this device.</p>
-        <button onClick={() => logout()}>Log out</button>
-      </section>
+      <div className="grid grid-cols-[1.6fr_1fr] gap-4">
+        {/* Change password */}
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+          <h3 className="font-semibold text-brand-text">Change password</h3>
+          <p className="mt-1 text-xs text-brand-text-secondary">
+            {canChangePassword
+              ? "Choose a new password for your account."
+              : "Not available for Google sign-in accounts"}
+          </p>
+          <form
+            onSubmit={handleChangePassword}
+            className="mt-4 flex max-w-sm flex-col gap-3"
+          >
+            <input
+              type="password"
+              placeholder="Current password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              disabled={!canChangePassword || pwSubmitting}
+              className="rounded-md border border-brand-border-subtle bg-brand-bg px-3 py-2 text-sm text-brand-text placeholder:text-brand-text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <input
+              type="password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              disabled={!canChangePassword || pwSubmitting}
+              className="rounded-md border border-brand-border-subtle bg-brand-bg px-3 py-2 text-sm text-brand-text placeholder:text-brand-text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={!canChangePassword || pwSubmitting}
+              className="rounded-md border border-brand-border-subtle bg-brand-bg px-3 py-2 text-sm text-brand-text placeholder:text-brand-text-secondary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            {pwError && <p className="text-xs text-brand-error">{pwError}</p>}
+            {pwSuccess && (
+              <p className="text-xs text-brand-green">Password updated.</p>
+            )}
+            <button
+              type="submit"
+              disabled={!canChangePassword || pwSubmitting}
+              className="mt-1 w-fit cursor-pointer rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-brand-bg transition-colors duration-200 hover:bg-brand-green-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pwSubmitting ? "Updating…" : "Update password"}
+            </button>
+          </form>
+        </div>
 
-      {/* Change password */}
-      <section style={{ margin: "24px 0" }}>
-        <h3>Change password</h3>
-        <form
-          onSubmit={handleChangePassword}
-          style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 320 }}
-        >
-          <input
-            type="password"
-            placeholder="Current password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="New password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Confirm new password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-          <button type="submit">Update password</button>
-        </form>
-      </section>
+        {/* Danger zone */}
+        <div className="rounded-xl border border-brand-error/40 bg-brand-error/5 p-5">
+          <h3 className="font-semibold text-brand-error">Danger zone</h3>
+          <p className="mt-2 text-sm text-brand-text-secondary">
+            Deleting your account removes all linked banks, transactions, and
+            budgets. This cannot be undone.
+          </p>
+          <button
+            type="button"
+            onClick={() => setDeleteModalOpen(true)}
+            className="mt-4 flex cursor-pointer items-center gap-2 rounded-lg border border-brand-error/40 px-4 py-2 text-sm font-semibold text-brand-error transition-colors duration-200 hover:bg-brand-error/10"
+          >
+            <TrashIcon />
+            Delete account
+          </button>
+        </div>
+      </div>
 
-      {/* Danger zone */}
-      <section
-        style={{ margin: "24px 0", border: "1px solid #c00", padding: 16 }}
-      >
-        <h3 style={{ color: "#c00" }}>Danger zone</h3>
-        <p>
-          Deleting your account removes all linked banks, transactions, and
-          budgets. This cannot be undone.
-        </p>
-        <button onClick={handleDeleteAccount} style={{ color: "#c00" }}>
-          Delete account
-        </button>
-      </section>
+      <DeleteAccountModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteAccount}
+        userEmail={user?.email ?? ""}
+      />
     </div>
   );
 }
