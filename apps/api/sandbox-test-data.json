@@ -1,0 +1,47 @@
+{
+  "seed": "finapse-recurring-test-v1",
+  "override_accounts": [
+    {
+      "type": "depository",
+      "subtype": "checking",
+      "starting_balance": 5000,
+      "meta": {
+        "name": "Everyday Checking"
+      },
+      "transactions": [
+        { "date_transacted": "2026-04-01", "date_posted": "2026-04-01", "currency": "USD", "amount": 15.99, "description": "NETFLIX.COM" },
+        { "date_transacted": "2026-05-01", "date_posted": "2026-05-01", "currency": "USD", "amount": 15.99, "description": "NETFLIX.COM" },
+        { "date_transacted": "2026-06-01", "date_posted": "2026-06-01", "currency": "USD", "amount": 15.99, "description": "NETFLIX.COM" },
+        { "date_transacted": "2026-07-01", "date_posted": "2026-07-01", "currency": "USD", "amount": 15.99, "description": "NETFLIX.COM" },
+
+        { "date_transacted": "2026-05-05", "date_posted": "2026-05-05", "currency": "USD", "amount": 79.99, "description": "COMCAST CABLE COMM" },
+        { "date_transacted": "2026-06-05", "date_posted": "2026-06-05", "currency": "USD", "amount": 79.99, "description": "COMCAST CABLE COMM" },
+        { "date_transacted": "2026-07-05", "date_posted": "2026-07-05", "currency": "USD", "amount": 79.99, "description": "COMCAST CABLE COMM" },
+
+        { "date_transacted": "2026-04-15", "date_posted": "2026-04-15", "currency": "USD", "amount": 9.99, "description": "SPOTIFY USA" },
+        { "date_transacted": "2026-05-15", "date_posted": "2026-05-15", "currency": "USD", "amount": 9.99, "description": "SPOTIFY USA" },
+        { "date_transacted": "2026-06-15", "date_posted": "2026-06-15", "currency": "USD", "amount": 15.99, "description": "SPOTIFY USA" },
+        { "date_transacted": "2026-07-15", "date_posted": "2026-07-15", "currency": "USD", "amount": 15.99, "description": "SPOTIFY USA" },
+
+        { "date_transacted": "2026-05-09", "date_posted": "2026-05-09", "currency": "USD", "amount": 4.75, "description": "STARBUCKS STORE" },
+        { "date_transacted": "2026-06-08", "date_posted": "2026-06-08", "currency": "USD", "amount": 4.75, "description": "STARBUCKS STORE" },
+        { "date_transacted": "2026-07-09", "date_posted": "2026-07-09", "currency": "USD", "amount": 4.75, "description": "STARBUCKS STORE" },
+
+        { "date_transacted": "2026-06-01", "date_posted": "2026-06-01", "currency": "USD", "amount": 10.00, "description": "PLANET FITNESS" },
+        { "date_transacted": "2026-07-01", "date_posted": "2026-07-01", "currency": "USD", "amount": 10.00, "description": "PLANET FITNESS" },
+
+        { "date_transacted": "2026-05-01", "date_posted": "2026-05-01", "currency": "USD", "amount": -3200.00, "description": "EMPLOYER DIRECT DEP PAYROLL" },
+        { "date_transacted": "2026-06-01", "date_posted": "2026-06-01", "currency": "USD", "amount": -3200.00, "description": "EMPLOYER DIRECT DEP PAYROLL" },
+        { "date_transacted": "2026-07-01", "date_posted": "2026-07-01", "currency": "USD", "amount": -3200.00, "description": "EMPLOYER DIRECT DEP PAYROLL" },
+
+        { "date_transacted": "2026-06-12", "date_posted": "2026-06-12", "currency": "USD", "amount": 250.00, "description": "ONLINE PMT THANK YOU" },
+        { "date_transacted": "2026-06-20", "date_posted": "2026-06-20", "currency": "USD", "amount": 64.20, "description": "AMAZON.COM" },
+        { "date_transacted": "2026-07-02", "date_posted": "2026-07-02", "currency": "USD", "amount": 38.50, "description": "SHELL OIL" },
+        { "date_transacted": "2026-07-15", "date_posted": "2026-07-15", "currency": "USD", "amount": 112.34, "description": "WHOLE FOODS MARKET" },
+        { "date_transacted": "2026-05-22", "date_posted": "2026-05-22", "currency": "USD", "amount": 412.00, "description": "UNITED AIRLINES" },
+
+        { "date_transacted": "2026-07-29", "date_posted": "2026-08-02", "currency": "USD", "amount": 45.10, "description": "TARGET STORE" }
+      ]
+    }
+  ]
+}

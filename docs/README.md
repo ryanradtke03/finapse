@@ -11,6 +11,7 @@ This folder contains high-level system documentation to ensure architecture, API
 - [Auth Endpoints](./auth.md)
 - [Web App](./web.md)
 - [Database](./db.md)
+- [Testing](./testing.md)
 - [Contributing](./contributing.md)
 
 ## Philosophy
