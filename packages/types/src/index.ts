@@ -39,6 +39,7 @@ export interface Account {
 export interface Transaction {
   id: string;
   plaidTransactionId: string;
+  accountId: string;
   amount: string;
   isoCurrencyCode: string | null;
   date: string;
@@ -46,6 +47,11 @@ export interface Transaction {
   merchantName: string | null;
   category: string[];
   personalFinanceCategory: string | null;
+  personalFinanceCategoryDetail: string | null;
+  userCategory: string | null;
+  paymentChannel: string | null;
+  merchantEntityId: string | null;
+  location: string | null;
   pending: boolean;
   isRecurring: boolean;
   recurringFrequency: RecurringFrequency | null;

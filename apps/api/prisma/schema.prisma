@@ -108,6 +108,10 @@ model Transaction {
 
   userCategory                   String?             @map("user_category")
 
+  paymentChannel                 String?             @map("payment_channel")
+  merchantEntityId               String?             @map("merchant_entity_id")
+  location                       String?
+
   pending                        Boolean             @default(false)
 
   isRecurring                    Boolean             @default(false) @map("is_recurring")

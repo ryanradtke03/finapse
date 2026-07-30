@@ -527,6 +527,10 @@ export async function syncTransactions(userId: string, plaidItemId: string) {
 }
 
 function mapTransaction(t: PlaidTransaction, accountId: string) {
+  const locationParts = [t.location?.city, t.location?.region].filter(
+    (part): part is string => !!part,
+  );
+
   return {
     plaidTransactionId: t.transaction_id,
     accountId,
@@ -537,6 +541,10 @@ function mapTransaction(t: PlaidTransaction, accountId: string) {
     merchantName: t.merchant_name ?? null,
     category: t.category ?? [],
     personalFinanceCategory: t.personal_finance_category?.primary ?? null,
+    personalFinanceCategoryDetail: t.personal_finance_category?.detailed ?? null,
+    paymentChannel: t.payment_channel ?? null,
+    merchantEntityId: t.merchant_entity_id ?? null,
+    location: locationParts.length > 0 ? locationParts.join(", ") : null,
     pending: t.pending,
   };
 }

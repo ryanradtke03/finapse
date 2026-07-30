@@ -100,6 +100,8 @@ export async function deleteItem(
     const { id } = req.params;
 
     await deletePlaidItem(userId, id);
+
+    res.status(200).json({ message: "Bank removed successfully" });
   } catch (err) {
     next(err);
   }

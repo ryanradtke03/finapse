@@ -1,8 +1,12 @@
+import type { Transaction } from "@finapse/types";
 import { apiBaseUrl } from "./index";
 
 export interface TransactionFilters {
   accountId?: string;
-  category?: string;
+  // Accepts a single value (Dashboard's single-select) or several
+  // (Transactions page's multi-select) — either way each entry is sent as
+  // its own repeated `category` query param.
+  category?: string | string[];
   search?: string;
   startDate?: string;
   endDate?: string;
@@ -11,17 +15,29 @@ export interface TransactionFilters {
 }
 
 export interface TransactionsResponse {
-  transactions: unknown[]; // swap for your Transaction type from @finapse/types
+  transactions: Transaction[];
   nextCursor: string | null;
+}
+
+function buildFilterParams(
+  filters: Record<string, string | number | string[] | undefined>,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined || value === "") continue;
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, item);
+    } else {
+      params.append(key, String(value));
+    }
+  }
+  return params;
 }
 
 export const getTransactions = async (
   filters: TransactionFilters = {},
 ): Promise<TransactionsResponse> => {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) {
-    if (value !== undefined && value !== "") params.append(key, String(value));
-  }
+  const params = buildFilterParams(filters);
 
   const res = await fetch(`${apiBaseUrl}/transaction?${params.toString()}`, {
     method: "GET",
@@ -36,27 +52,49 @@ export const getTransactions = async (
   return res.json();
 };
 
+export const getTransactionCategories = async (): Promise<string[]> => {
+  const res = await fetch(`${apiBaseUrl}/transaction/categories`, {
+    method: "GET",
+    credentials: "include",
+  });
+  if (!res.ok) throw await res.json();
+  const data = await res.json();
+  return data.categories;
+};
+
+export const updateTransactionCategory = async (
+  id: string,
+  category: string | null,
+): Promise<Transaction> => {
+  const res = await fetch(`${apiBaseUrl}/transaction/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ category }),
+  });
+  if (!res.ok) throw await res.json();
+  const data = await res.json();
+  return data.transaction;
+};
+
 export interface SummaryFilters {
   accountId?: string;
   startDate?: string;
   endDate?: string;
+  category?: string;
 }
 
 export interface TransactionSummary {
   byCategory: { category: string; total: number; count: number }[];
+  byDay: { date: string; spending: number; income: number }[];
   totalSpent: number;
   totalIncome: number;
-  // net?: number;      // add once you add it to the service
-  // byDay?: {...}[];    // add when you build the over-time chart
 }
 
 export const getTransactionSummary = async (
   filters: SummaryFilters = {},
 ): Promise<TransactionSummary> => {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) {
-    if (value !== undefined && value !== "") params.append(key, String(value));
-  }
+  const params = buildFilterParams(filters);
 
   const res = await fetch(
     `${apiBaseUrl}/transaction/summary?${params.toString()}`,
@@ -75,7 +113,7 @@ export const getTransactionSummary = async (
   return data.summary; // your controller wraps it: res.json({ summary })
 };
 
-export const getTransaction = async (id: string) => {
+export const getTransaction = async (id: string): Promise<Transaction> => {
   const res = await fetch(`${apiBaseUrl}/transaction/${id}`, {
     method: "GET",
     credentials: "include",

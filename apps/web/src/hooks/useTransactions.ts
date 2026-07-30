@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   getTransaction,
+  getTransactionCategories,
   getTransactions,
   getTransactionSummary,
   type SummaryFilters,
@@ -41,5 +42,14 @@ export function useTransaction(id?: string) {
     queryKey: ["transaction", id],
     queryFn: () => getTransaction(id!),
     enabled: !!id, // only fetches when a row is selected
+  });
+}
+
+// distinct categories for the Transactions page's filter + recategorize picker
+export function useTransactionCategories() {
+  return useQuery({
+    queryKey: ["transaction-categories"],
+    queryFn: getTransactionCategories,
+    placeholderData: (prev) => prev,
   });
 }

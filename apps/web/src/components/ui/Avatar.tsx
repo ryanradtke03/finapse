@@ -1,6 +1,11 @@
 interface AvatarProps {
   name: string;
   size?: "sm" | "md" | "lg";
+  shape?: "circle" | "square";
+  // Overrides USE_HASHED_PALETTE below for this instance only. Useful for
+  // things like institution logos where per-name color variety is wanted
+  // even though user avatars default to a flat brand green.
+  variant?: "brand" | "palette";
   className?: string;
 }
 
@@ -47,13 +52,21 @@ function getColor(name: string): string {
   return PALETTE[hashString(name) % PALETTE.length];
 }
 
-export function Avatar({ name, size = "md", className = "" }: AvatarProps) {
+export function Avatar({
+  name,
+  size = "md",
+  shape = "circle",
+  variant,
+  className = "",
+}: AvatarProps) {
   const initials = getInitials(name);
+  const usePalette = variant ? variant === "palette" : USE_HASHED_PALETTE;
+  const shapeClass = shape === "square" ? "rounded-lg" : "rounded-full";
 
   return (
     <div
-      className={`flex items-center justify-center shrink-0 rounded-full font-semibold text-white ${SIZE_MAP[size]} ${className} ${USE_HASHED_PALETTE ? "" : "bg-brand-green"}`}
-      style={USE_HASHED_PALETTE ? { backgroundColor: getColor(name) } : undefined}
+      className={`flex items-center justify-center shrink-0 font-semibold text-white ${SIZE_MAP[size]} ${shapeClass} ${className} ${usePalette ? "" : "bg-brand-green"}`}
+      style={usePalette ? { backgroundColor: getColor(name) } : undefined}
       title={name}
     >
       {initials}

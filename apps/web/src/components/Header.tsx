@@ -1,36 +1,72 @@
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Avatar } from "./ui/Avatar";
 
-const PAGE_TITLES: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/accounts": "Accounts",
-  "/transactions": "Transactions",
-  "/settings": "Settings",
+const PAGE_INFO: Record<string, { title: string; subtitle: string }> = {
+  "/dashboard": {
+    title: "Dashboard",
+    subtitle: "Overview of your money across every linked account",
+  },
+  "/accounts": {
+    title: "Accounts",
+    subtitle: "Manage the banks and cards linked through Plaid",
+  },
+  "/transactions": {
+    title: "Transactions",
+    subtitle: "Search and filter every transaction across your accounts",
+  },
+  "/budgets": {
+    title: "Budgets",
+    subtitle: "Set per-category limits and track spending against them",
+  },
+  "/settings": {
+    title: "Settings",
+    subtitle: "Manage your profile, security, and account",
+  },
 };
+
+function BellIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15.5 8a5.5 5.5 0 00-11 0c0 4.5-2 5.5-2 5.5h15S15.5 12.5 15.5 8z" />
+      <path d="M8.3 16.2a1.7 1.7 0 003.4 0" />
+    </svg>
+  );
+}
 
 export default function Header() {
   const { user } = useAuth();
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] ?? "Finapse";
+  const info = PAGE_INFO[location.pathname] ?? { title: "Finapse", subtitle: "" };
 
   return (
-    <header
-      className={`
-        bg-brand-bg
-
-        `}
-      style={{
-        height: 64,
-        borderBottom: "1px solid #272727",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        padding: "0 24px",
-        color: "#f4f4f5",
-      }}
-    >
-      <span>{title}</span>
-      <span>{user?.fullName ?? "Account"}</span>
+    <header className="flex items-center justify-between border-b border-brand-border-subtle px-6 py-6">
+      <div>
+        <h1 className="text-2xl font-bold text-brand-text">{info.title}</h1>
+        {info.subtitle && (
+          <p className="mt-1 text-sm text-brand-text-secondary">
+            {info.subtitle}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center gap-5">
+        <button
+          type="button"
+          className="cursor-pointer text-brand-text-secondary transition-colors duration-200 hover:text-brand-text"
+        >
+          <BellIcon />
+        </button>
+        <Avatar name={user?.fullName ?? "Account"} size="sm" />
+      </div>
     </header>
   );
 }
