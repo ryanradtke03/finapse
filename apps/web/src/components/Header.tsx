@@ -65,7 +65,7 @@ export default function Header() {
         >
           <BellIcon />
         </button>
-        <Avatar name={user?.fullName ?? "Account"} size="sm" />
+        <Avatar name={user?.fullName ?? "Account"} size="lg" />
       </div>
     </header>
   );
