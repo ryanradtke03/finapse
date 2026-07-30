@@ -1,15 +1,40 @@
-import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { updateTransactionCategory } from "../api/transactions";
 import type { TransactionFilters } from "../api/transactions";
+import { TransactionDetailPanel } from "../components/TransactionDetailPanel";
+import { CategoryBadge } from "../components/ui/CategoryBadge";
+import { Dropdown } from "../components/ui/Dropdown";
+import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
 import { useItems } from "../hooks/useItems";
 import {
   useInfiniteTransactions,
   useTransaction,
-  useTransactionSummary,
+  useTransactionCategories,
 } from "../hooks/useTransactions";
+import {
+  getEffectiveCategory,
+  getTransactionCategoryColor,
+  getTransactionCategoryLabel,
+} from "../lib/transactionCategories";
+
+function SearchIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0 text-brand-text-secondary">
+      <circle cx="7" cy="7" r="5" />
+      <path d="M14 14l-3-3" />
+    </svg>
+  );
+}
+
+function formatMoney(value: number): string {
+  return `$${Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function Transactions() {
   const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<TransactionFilters>({});
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
 
   // debounce the search box → only updates filters after typing pauses
@@ -21,16 +46,36 @@ export default function Transactions() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  const queryClient = useQueryClient();
   const items = useItems();
-  const summary = useTransactionSummary({}); // reused just for category options
-  const q = useInfiniteTransactions(filters);
+  const categoriesQuery = useTransactionCategories();
+  const q = useInfiniteTransactions({
+    ...filters,
+    category: selectedCategories.length > 0 ? selectedCategories : undefined,
+  });
   const detail = useTransaction(selectedId);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const accounts = items.data?.flatMap((i: any) => i.accounts) ?? [];
-  const categories = summary.data?.byCategory ?? [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = q.data?.pages.flatMap((p: any) => p.transactions) ?? [];
+  const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
+  const rows = q.data?.pages.flatMap((p) => p.transactions) ?? [];
+
+  const accountLookup = useMemo(() => {
+    const map = new Map<string, { institutionName: string; mask: string | null }>();
+    for (const item of items.data ?? []) {
+      for (const a of item.accounts) {
+        map.set(a.id, {
+          institutionName: item.institutionName ?? "Bank",
+          mask: a.mask,
+        });
+      }
+    }
+    return map;
+  }, [items.data]);
+
+  const categoryOptions = (categoriesQuery.data ?? []).map((value) => ({
+    value,
+    label: getTransactionCategoryLabel(value),
+    color: getTransactionCategoryColor(value),
+  }));
 
   function setFilter<K extends keyof TransactionFilters>(
     key: K,
@@ -39,101 +84,147 @@ export default function Transactions() {
     setFilters((prev) => ({ ...prev, [key]: value || undefined }));
   }
 
-  return (
-    <div style={{ display: "flex" }}>
-      {/* main list */}
-      <div style={{ flex: 1, padding: 24 }}>
-        <h2>Transactions</h2>
+  const handleRecategorize = async (category: string) => {
+    if (!selectedId) return;
+    await updateTransactionCategory(selectedId, category);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["transaction", selectedId] }),
+      queryClient.invalidateQueries({ queryKey: ["transaction-categories"] }),
+    ]);
+  };
 
-        <div style={{ display: "flex", gap: 12, margin: "12px 0" }}>
-          <input
-            placeholder="Search by merchant…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+  return (
+    <div className="flex items-start gap-6">
+      <div className="min-w-0 flex-1">
+        <div className="mb-5 flex flex-wrap gap-3">
+          <div className="flex min-w-64 flex-1 items-center gap-2 rounded-xl border border-brand-border-subtle bg-brand-surface px-4 py-2.5">
+            <SearchIcon />
+            <input
+              placeholder="Search by merchant…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full bg-transparent text-sm text-brand-text placeholder:text-brand-text-secondary focus:outline-none"
+            />
+          </div>
+          <MultiSelectDropdown
+            label="Categories"
+            values={selectedCategories}
+            options={categoryOptions}
+            onChange={setSelectedCategories}
+            allLabel="All Categories"
+            className="w-56"
           />
-          <select
-            value={filters.category ?? ""}
-            onChange={(e) => setFilter("category", e.target.value)}
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c.category} value={c.category}>
-                {c.category}
-              </option>
-            ))}
-          </select>
-          <select
+          <Dropdown
+            label="Account"
             value={filters.accountId ?? ""}
-            onChange={(e) => setFilter("accountId", e.target.value)}
-          >
-            <option value="">All accounts</option>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            {accounts.map((a: any) => (
-              <option key={a.id} value={a.id}>
-                {a.name} {a.mask ? `··${a.mask}` : ""}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "All Accounts" },
+              ...accounts.map((a) => ({
+                value: a.id,
+                label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
+              })),
+            ]}
+            onChange={(v) => setFilter("accountId", v)}
+            className="w-56"
+          />
         </div>
 
-        {q.isLoading && <p>Loading…</p>}
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        {rows.map((t: any) => (
-          <div
-            key={t.id}
-            onClick={() => setSelectedId(t.id)}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "8px 4px",
-              cursor: "pointer",
-              background: selectedId === t.id ? "#eee" : "transparent",
-            }}
-          >
-            <span>{t.merchantName ?? t.name}</span>
-            <span>{t.userCategory ?? t.personalFinanceCategory ?? "—"}</span>
-            <span>${Number(t.amount).toFixed(2)}</span>
+        <div className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
+          <div className="grid grid-cols-[2fr_1.2fr_1.2fr_1fr_1fr] gap-4 border-b border-brand-border-subtle px-5 py-3 text-xs tracking-wide text-brand-text-secondary uppercase">
+            <span>Merchant</span>
+            <span>Category</span>
+            <span>Account</span>
+            <span>Date</span>
+            <span className="text-right">Amount</span>
           </div>
-        ))}
+
+          {q.isLoading && (
+            <p className="p-5 text-sm text-brand-text-secondary">Loading…</p>
+          )}
+          {!q.isLoading && rows.length === 0 && (
+            <p className="p-5 text-sm text-brand-text-secondary">
+              No transactions match these filters.
+            </p>
+          )}
+
+          {rows.map((t) => {
+            const account = accountLookup.get(t.accountId);
+            const amount = Number(t.amount);
+            const isIncome = amount < 0;
+            return (
+              <div
+                key={t.id}
+                onClick={() => setSelectedId(t.id)}
+                className={`grid cursor-pointer grid-cols-[2fr_1.2fr_1.2fr_1fr_1fr] items-center gap-4 border-b border-brand-border-subtle px-5 py-3.5 transition-colors duration-100 last:border-0 hover:bg-brand-surface-raised ${
+                  selectedId === t.id ? "bg-brand-surface-raised" : ""
+                }`}
+              >
+                <span className="truncate text-sm font-medium text-brand-text">
+                  {t.merchantName ?? t.name}
+                </span>
+                <CategoryBadge category={getEffectiveCategory(t)} />
+                <span className="truncate text-sm text-brand-text-secondary">
+                  {account
+                    ? `${account.institutionName} ··${account.mask ?? "----"}`
+                    : "—"}
+                </span>
+                <span className="text-sm text-brand-text-secondary">
+                  {new Date(t.date).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+                <span
+                  className={`text-right text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-text"}`}
+                >
+                  {isIncome ? "+" : "-"}
+                  {formatMoney(amount)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
         {q.hasNextPage && (
-          <button
-            onClick={() => q.fetchNextPage()}
-            disabled={q.isFetchingNextPage}
-          >
-            {q.isFetchingNextPage ? "Loading…" : "Load more"}
-          </button>
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => q.fetchNextPage()}
+              disabled={q.isFetchingNextPage}
+              className="cursor-pointer rounded-lg border border-brand-border-subtle bg-brand-surface px-5 py-2 text-sm font-medium text-brand-text transition-colors duration-200 hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {q.isFetchingNextPage ? "Loading…" : "Load more"}
+            </button>
+          </div>
         )}
       </div>
 
-      {/* detail drawer */}
-      {selectedId && (
-        <div style={{ width: 360, borderLeft: "1px solid #ccc", padding: 24 }}>
-          <button
-            onClick={() => setSelectedId(undefined)}
-            style={{ float: "right" }}
-          >
-            X
-          </button>
-          {detail.isLoading && <p>Loading…</p>}
-          {detail.data && (
-            <>
-              <h3>{detail.data.merchantName ?? detail.data.name}</h3>
-              <p style={{ fontSize: 24 }}>
-                ${Number(detail.data.amount).toFixed(2)}
-              </p>
-              <p>Date: {new Date(detail.data.date).toLocaleDateString()}</p>
-              <p>
-                Category:{" "}
-                {detail.data.userCategory ??
-                  detail.data.personalFinanceCategory ??
-                  "—"}
-              </p>
-              <p>Status: {detail.data.pending ? "Pending" : "Posted"}</p>
-              <p>Transaction ID: {detail.data.plaidTransactionId}</p>
-            </>
-          )}
+      {selectedId && detail.isLoading && (
+        <div className="sticky top-6 flex w-96 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-surface p-6">
+          <p className="text-sm text-brand-text-secondary">Loading…</p>
         </div>
+      )}
+
+      {selectedId && detail.data && (
+        <TransactionDetailPanel
+          transaction={detail.data}
+          account={accountLookup.get(detail.data.accountId)}
+          categoryOptions={
+            categoryOptions.length > 0
+              ? categoryOptions
+              : [
+                  {
+                    value: getEffectiveCategory(detail.data),
+                    label: getTransactionCategoryLabel(
+                      getEffectiveCategory(detail.data),
+                    ),
+                  },
+                ]
+          }
+          onClose={() => setSelectedId(undefined)}
+          onRecategorize={handleRecategorize}
+        />
       )}
     </div>
   );

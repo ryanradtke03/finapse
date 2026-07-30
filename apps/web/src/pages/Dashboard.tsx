@@ -1,10 +1,34 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Link } from "react-router-dom";
 import type { TransactionFilters } from "../api/transactions";
+import { Dropdown } from "../components/ui/Dropdown";
 import { useItems } from "../hooks/useItems";
 import {
   useTransactions,
   useTransactionSummary,
 } from "../hooks/useTransactions";
+import {
+  getEffectiveCategory,
+  getTransactionCategoryColor,
+  getTransactionCategoryLabel,
+} from "../lib/transactionCategories";
+
+const TIME_FRAME_OPTIONS = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "month", label: "This month" },
+  { value: "3m", label: "Last 3 months" },
+];
 
 // time-frame presets → concrete date range
 function presetRange(preset: string): { startDate: string; endDate: string } {
@@ -18,21 +42,92 @@ function presetRange(preset: string): { startDate: string; endDate: string } {
   return { startDate: iso(start), endDate: iso(end) };
 }
 
+// same-length window immediately preceding the current one, for "vs last period"
+function previousRange(startDate: string, endDate: string) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const rangeMs = end.getTime() - start.getTime();
+  const prevEnd = new Date(start.getTime() - 86400000);
+  const prevStart = new Date(prevEnd.getTime() - rangeMs);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { startDate: iso(prevStart), endDate: iso(prevEnd) };
+}
+
+function trendLabel(current: number, previous: number): string {
+  if (previous === 0) {
+    if (current === 0) return "0% vs last period";
+    return "UP 100%+ vs last period";
+  }
+  const pct = ((current - previous) / Math.abs(previous)) * 100;
+  if (Math.abs(pct) < 0.05) return "0% vs last period";
+  const dir = pct > 0 ? "UP" : "DOWN";
+  return `${dir} ${Math.abs(pct).toFixed(1)}% vs last period`;
+}
+
+function formatMoney(value: number): string {
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { value: number; dataKey: string }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-brand-border bg-brand-surface-raised px-3 py-2 text-xs shadow-xl">
+      <p className="mb-1 text-brand-text-secondary">Day {label}</p>
+      {payload.map((row) => (
+        <p key={row.dataKey} className="text-brand-text">
+          {row.dataKey === "spending" ? "Spending" : "Income"}:{" "}
+          <span className="font-semibold">{formatMoney(row.value)}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [filters, setFilters] = useState<TransactionFilters>(
     presetRange("30d"),
   );
+  const [timeFrame, setTimeFrame] = useState("30d");
   const [chartMode, setChartMode] = useState<"total" | "category" | "avg">(
     "total",
   );
+  const [showIncome, setShowIncome] = useState(false);
 
   const items = useItems();
   const summary = useTransactionSummary(filters);
   const list = useTransactions({ ...filters, limit: 10 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const accounts = items.data?.flatMap((i: any) => i.accounts) ?? [];
+  // Unfiltered-by-category version of the same query, purely to populate the
+  // Category dropdown's option list. Using `summary` for that would make the
+  // list collapse to just the selected category once one's chosen, since
+  // `summary` itself is filtered by it. Dedupes with `summary`'s cache entry
+  // whenever no category is selected (same query key).
+  const categoryOptionsFilters = useMemo(
+    () => ({ ...filters, category: undefined }),
+    [filters],
+  );
+  const categoryOptionsQuery = useTransactionSummary(categoryOptionsFilters);
+
+  const prevFilters = useMemo(() => {
+    if (!filters.startDate || !filters.endDate) return undefined;
+    return {
+      ...filters,
+      ...previousRange(filters.startDate, filters.endDate),
+    };
+  }, [filters]);
+  const prevSummary = useTransactionSummary(prevFilters);
+
+  const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
   const categories = summary.data?.byCategory ?? [];
+  const allCategories = categoryOptionsQuery.data?.byCategory ?? [];
 
   function setFilter<K extends keyof TransactionFilters>(
     key: K,
@@ -42,12 +137,17 @@ export default function Dashboard() {
   }
 
   function applyPreset(preset: string) {
+    setTimeFrame(preset);
     setFilters((prev) => ({ ...prev, ...presetRange(preset) }));
   }
 
   const spent = summary.data?.totalSpent ?? 0;
   const income = summary.data?.totalIncome ?? 0;
-  const net = income - spent; // client-side until backend returns `net`
+  const net = income - spent;
+
+  const prevSpent = prevSummary.data?.totalSpent ?? 0;
+  const prevIncome = prevSummary.data?.totalIncome ?? 0;
+  const prevNet = prevIncome - prevSpent;
 
   const days =
     filters.startDate && filters.endDate
@@ -59,342 +159,312 @@ export default function Dashboard() {
         )
       : 30;
 
+  const chartData = useMemo(
+    () =>
+      (summary.data?.byDay ?? []).map((d) => ({
+        date: d.date,
+        day: Number(d.date.slice(8, 10)),
+        spending: d.spending,
+        income: d.income,
+      })),
+    [summary.data],
+  );
+
+  const maxSpendDate = useMemo(() => {
+    if (chartData.length === 0) return null;
+    return chartData.reduce((max, d) => (d.spending > max.spending ? d : max)).date;
+  }, [chartData]);
+
+  const accountOptions = [
+    { value: "", label: "All Accounts" },
+    ...accounts.map((a) => ({
+      value: a.id,
+      label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
+    })),
+  ];
+
+  const categoryOptions = [
+    { value: "", label: "All Categories" },
+    ...allCategories.map((c) => ({
+      value: c.category,
+      label: getTransactionCategoryLabel(c.category),
+    })),
+  ];
+
   return (
-    <div
-      style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}
-    >
+    <div className="flex flex-col gap-5">
       {/* filters */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <select
-          value={filters.accountId ?? ""}
-          onChange={(e) => setFilter("accountId", e.target.value)}
-        >
-          <option value="">All accounts</option>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any*/}
-          {accounts.map((a: any) => (
-            <option key={a.id} value={a.id}>
-              {a.name} {a.mask ? `··${a.mask}` : ""}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-3">
+          <Dropdown
+            label="Account"
+            value={filters.accountId ?? ""}
+            options={accountOptions}
+            onChange={(v) => setFilter("accountId", v)}
+            className="w-48"
+          />
+          <Dropdown
+            label="Time frame"
+            value={timeFrame}
+            options={TIME_FRAME_OPTIONS}
+            onChange={applyPreset}
+            className="w-44"
+          />
+          <Dropdown
+            label="Category"
+            value={filters.category ?? ""}
+            options={categoryOptions}
+            onChange={(v) => setFilter("category", v)}
+            className="w-44"
+          />
+        </div>
 
-        <select
-          defaultValue="30d"
-          onChange={(e) => applyPreset(e.target.value)}
-        >
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-          <option value="month">This month</option>
-          <option value="3m">Last 3 months</option>
-        </select>
-
-        <select
-          value={filters.category ?? ""}
-          onChange={(e) => setFilter("category", e.target.value)}
-        >
-          <option value="">All categories</option>
-          {categories.map((c) => (
-            <option key={c.category} value={c.category}>
-              {c.category}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* summary strip */}
-      <div style={{ display: "flex", gap: 12 }}>
-        {[
-          ["Spending", spent],
-          ["Income", income],
-          ["Net", net],
-        ].map(([label, value]) => (
-          <div
-            key={label as string}
-            style={{
-              flex: 1,
-              padding: 16,
-              border: "1px solid #ccc",
-              borderRadius: 8,
-            }}
-          >
-            <div style={{ fontSize: 12, opacity: 0.6 }}>{label}</div>
-            <div style={{ fontSize: 24 }}>${Number(value).toFixed(2)}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* chart-mode toggle + graph area */}
-      <div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        <div className="flex items-center gap-1 rounded-xl border border-brand-border bg-brand-surface p-1">
           {(["total", "category", "avg"] as const).map((m) => (
             <button
               key={m}
+              type="button"
               onClick={() => setChartMode(m)}
-              style={{ fontWeight: chartMode === m ? 700 : 400 }}
+              className={`cursor-pointer rounded-lg px-4 py-1.5 text-sm font-medium transition-colors duration-150 ${
+                chartMode === m
+                  ? "bg-brand-green text-brand-bg font-semibold"
+                  : "text-brand-text-secondary hover:text-brand-text"
+              }`}
             >
               {m === "total"
                 ? "Total"
                 : m === "category"
                   ? "By category"
-                  : "Avg / day"}
+                  : "Avg/day"}
             </button>
           ))}
         </div>
+      </div>
 
-        <div
-          style={{ padding: 16, border: "1px dashed #ccc", borderRadius: 8 }}
-        >
-          {chartMode === "total" && (
-            <p>[ spending-over-time chart — needs byDay from backend ]</p>
-          )}
-          {chartMode === "category" &&
-            categories.map((c) => (
-              <div
-                key={c.category}
-                style={{ display: "flex", justifyContent: "space-between" }}
-              >
-                <span>{c.category}</span>
-                <span>${c.total.toFixed(2)}</span>
-              </div>
-            ))}
-          {chartMode === "avg" && (
-            <p>Avg spend / day: ${(spent / days).toFixed(2)}</p>
-          )}
+      {/* summary strip */}
+      <div className="flex gap-4">
+        <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
+          <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
+            Spending
+          </p>
+          <p className="mt-1 text-2xl font-bold text-brand-error">
+            {formatMoney(spent)}
+          </p>
+          <p className="mt-1 text-xs text-brand-text-secondary">
+            {trendLabel(spent, prevSpent)}
+          </p>
+        </div>
+        <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
+          <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
+            Income
+          </p>
+          <p className="mt-1 text-2xl font-bold text-brand-green">
+            {formatMoney(income)}
+          </p>
+          <p className="mt-1 text-xs text-brand-text-secondary">
+            {trendLabel(income, prevIncome)}
+          </p>
+        </div>
+        <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
+          <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
+            Net
+          </p>
+          <p className="mt-1 text-2xl font-bold text-brand-text">
+            {net >= 0 ? "+" : "-"}
+            {formatMoney(Math.abs(net))}
+          </p>
+          <p className="mt-1 text-xs text-brand-text-secondary">
+            {trendLabel(net, prevNet)}
+          </p>
         </div>
       </div>
 
-      {/* recent transactions */}
-      <div>
-        <h3>Recent transactions</h3>
-        {list.isLoading && <p>Loading…</p>}
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any*/}
-        {list.data?.transactions.map((t: any) => (
-          <div
-            key={t.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "4px 0",
-            }}
-          >
-            <span>{t.merchantName ?? t.name}</span>
-            <span>${Number(t.amount).toFixed(2)}</span>
+      {/* chart + recent transactions */}
+      <div className="grid grid-cols-[2fr_1fr] gap-4">
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+          {chartMode === "total" && (
+            <>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="font-semibold text-brand-text">
+                  Spending over time
+                </h3>
+                <div className="flex items-center gap-4 text-xs text-brand-text-secondary">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-brand-green" />
+                    Spending
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowIncome((v) => !v)}
+                    className="flex cursor-pointer items-center gap-1.5"
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${showIncome ? "bg-brand-text-secondary" : "border border-brand-text-secondary bg-transparent"}`}
+                    />
+                    Income
+                  </button>
+                </div>
+              </div>
+
+              {chartData.length === 0 ? (
+                <p className="py-16 text-center text-sm text-brand-text-secondary">
+                  No transactions in this period.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid
+                      vertical={false}
+                      stroke="var(--color-brand-border-subtle)"
+                    />
+                    <XAxis
+                      dataKey="day"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#777777", fontSize: 11 }}
+                      label={{
+                        value: "Day of month",
+                        position: "insideBottom",
+                        offset: -5,
+                        fill: "#777777",
+                        fontSize: 11,
+                      }}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#777777", fontSize: 11 }}
+                      tickFormatter={(v) => `$${v}`}
+                      width={48}
+                    />
+                    <Tooltip
+                      content={<ChartTooltip />}
+                      cursor={{ fill: "var(--color-brand-border-subtle)" }}
+                    />
+                    <Bar dataKey="spending" radius={[4, 4, 0, 0]}>
+                      {chartData.map((d) => (
+                        <Cell
+                          key={d.date}
+                          fill="var(--color-brand-green)"
+                          fillOpacity={d.date === maxSpendDate ? 1 : 0.55}
+                        />
+                      ))}
+                    </Bar>
+                    {showIncome && (
+                      <Bar
+                        dataKey="income"
+                        fill="var(--color-brand-text-secondary)"
+                        fillOpacity={0.6}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    )}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </>
+          )}
+
+          {chartMode === "category" && (
+            <>
+              <h3 className="mb-4 font-semibold text-brand-text">
+                Spending by category
+              </h3>
+              {categories.length === 0 ? (
+                <p className="text-sm text-brand-text-secondary">
+                  No transactions in this period.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {categories.map((c) => (
+                    <div
+                      key={c.category}
+                      className="flex items-center justify-between border-b border-brand-border-subtle pb-3 last:border-0"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-brand-text">
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: getTransactionCategoryColor(c.category) }}
+                        />
+                        {getTransactionCategoryLabel(c.category)}
+                      </span>
+                      <span className="text-sm font-semibold text-brand-text">
+                        {formatMoney(c.total)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {chartMode === "avg" && (
+            <>
+              <h3 className="mb-4 font-semibold text-brand-text">
+                Average spend per day
+              </h3>
+              <p className="text-3xl font-bold text-brand-text">
+                {formatMoney(spent / days)}
+              </p>
+              <p className="mt-1 text-xs text-brand-text-secondary">
+                Over the last {Math.round(days)} days
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* recent transactions */}
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-semibold text-brand-text">
+              Recent transactions
+            </h3>
+            <Link
+              to="/transactions"
+              className="text-sm text-brand-green hover:text-brand-green-hover"
+            >
+              View all
+            </Link>
           </div>
-        ))}
+
+          {list.isLoading && (
+            <p className="text-sm text-brand-text-secondary">Loading…</p>
+          )}
+
+          <div className="flex flex-col">
+            {list.data?.transactions.map((t) => {
+              const label = t.merchantName ?? t.name;
+              const amount = Number(t.amount);
+              const isIncome = amount < 0;
+              return (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between border-t border-brand-border-subtle py-3 first:border-0"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-surface-raised text-sm font-medium text-brand-text-secondary">
+                      {label.charAt(0).toUpperCase()}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-brand-text">
+                        {label}
+                      </p>
+                      <p className="text-xs text-brand-text-secondary">
+                        {getTransactionCategoryLabel(getEffectiveCategory(t))}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-error"}`}
+                  >
+                    {isIncome ? "+" : "-"}
+                    {formatMoney(Math.abs(amount))}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
-// import { useCallback, useEffect, useRef, useState } from "react"
-// import type { PlaidLinkOnExit, PlaidLinkOnSuccess } from "react-plaid-link"
-// import { usePlaidLink } from "react-plaid-link"
-// import { createLinkToken, exchangeToken, syncTransactions } from "../api/plaid"
-
-// // import { useState } from "react";
-// // import { useItems } from "../hooks/useItems";
-
-// import logger from "../utils/logger"
-
-// type Mode = { type: "new" } | { type: "update"; itemId: string }
-
-// interface ConnectBankProps {
-//   institutionId?: string
-//   onSuccess?: () => void
-// }
-
-// // export default function Dashboard() {
-// //   const { data: items, isLoading } = useItems()
-// //   const [expandedId, setExpandedId] = useState<string | null>(null)
-
-// //   if (isLoading) return <div>Loading...</div>
-// //   if (!items?.length) return <div>No accounts connected yet</div>
-
-// //   return (
-// //     <div>
-// //       <div className="mt-8 flex justify-center items-center">
-
-// //         {/* Modal Container */}
-// //         <div className="bg-brand-tab-bg border-2 border-brand-text-secondary rounded-2xl flex flex-col justify-center items-center">
-
-// //           {/* Header */}
-// //           <div className="text-brand-text flex flex-row border-b border-b-brand-text-secondary justify-between min-w-100 py-2">
-// //             <div className="pl-4">Connected Accounts</div>
-// //             <button className="pr-4">+ Add Institution</button>
-// //           </div>
-
-// //           {/* Item Card List */}
-// //           <div className="flex flex-col text-brand-text m-4 gap-2">
-// //             {items.map(item => (
-// //               <div key={item.id} className="flex flex-col bg-brand-bg border border-brand-text-secondary rounded-xl min-w-[460px]">
-
-// //                 {/* Item Card Row */}
-// //                 <div
-// //                   className="flex flex-row items-center justify-between px-4 py-3 cursor-pointer"
-// //                   onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-// //                 >
-// //                   {/* Bank Icon + Name + Sync */}
-// //                   <div className="flex flex-row items-center gap-3">
-// //                     <div className="bg-brand-tab-bg border border-brand-text-secondary rounded-lg p-2">
-// //                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-// //                         <rect x="3" y="6" width="18" height="13" rx="2" stroke="#5fd93a" strokeWidth="1.5"/>
-// //                         <path d="M3 10h18" stroke="#5fd93a" strokeWidth="1.5"/>
-// //                       </svg>
-// //                     </div>
-// //                     <div className="flex flex-col">
-// //                       <span className="text-brand-text text-sm font-medium">{item.institutionName}</span>
-// //                       <span className="text-brand-text-secondary text-xs">
-// //                         Last synced {new Date(item.updatedAt).toLocaleTimeString()}
-// //                       </span>
-// //                     </div>
-// //                   </div>
-
-// //                   {/* Status Badge + Delete + Chevron */}
-// //                   <div className="flex flex-row items-center gap-2">
-// //                     <span className={`text-xs font-medium px-3 py-1 rounded-full border ${
-// //                       item.status === 'ACTIVE'
-// //                         ? 'border-[#5fd93a55] bg-[#5fd93a15] text-[#5fd93a]'
-// //                         : 'border-[#ef9f2755] bg-[#ef9f2715] text-[#ef9f27]'
-// //                     }`}>
-// //                       • {item.status === 'ACTIVE' ? 'Active' : 'Needs reauth'}
-// //                     </span>
-// //                     <button
-// //                       className="border border-brand-text-secondary rounded-lg p-2"
-// //                       onClick={e => e.stopPropagation()}
-// //                     >
-// //                       <svg width="12" height="12" viewBox="0 0 14 16" fill="none">
-// //                         <path d="M1 4h12M5 4V2h4l-1 10H4L3 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-// //                       </svg>
-// //                     </button>
-// //                     <span className="text-brand-text-secondary text-xs">
-// //                       {expandedId === item.id ? '▴' : '▾'}
-// //                     </span>
-// //                   </div>
-// //                 </div>
-// //                 {/* End Item Card Row */}
-
-// //                 {/* Account List — shown when expanded */}
-// //                 {expandedId === item.id && (
-// //                   <div className="flex flex-col border-t border-brand-text-secondary px-4 py-3 gap-2">
-// //                     <span className="text-brand-text-secondary text-[10px] uppercase tracking-widest">
-// //                       Accounts
-// //                     </span>
-// //                     {item.accounts.map(account => (
-// //                       <div key={account.id} className="flex flex-row items-center justify-between py-2 border-b border-brand-text-secondary last:border-0">
-// //                         <div className="flex flex-col">
-// //                           <span className="text-brand-text text-sm">{account.name}</span>
-// //                           <span className="text-brand-text-secondary text-xs">••••{account.mask} · {account.subtype}</span>
-// //                         </div>
-// //                         <button className="text-brand-text-secondary text-xs hover:text-red-500 transition-colors">
-// //                           Remove
-// //                         </button>
-// //                       </div>
-// //                     ))}
-// //                     <button className="mt-1 text-xs text-brand-text-secondary border border-dashed border-brand-text-secondary rounded-lg py-2 hover:border-[#5fd93a] hover:text-[#5fd93a] transition-colors">
-// //                       + Add account
-// //                     </button>
-// //                   </div>
-// //                 )}
-// //                 {/* End Account List */}
-
-// //               </div>
-// //             ))}
-// //           </div>
-// //           {/* End Item Card List */}
-
-// //         </div>
-// //         {/* End Modal Container */}
-
-// //       </div>
-// //     </div>
-// //   )
-// // }
-
-// export default function ConnectBank({ onSuccess: onSuccessCallback }: ConnectBankProps) {
-//   const [linkToken, setLinkToken] = useState<string | null>(null)
-//   const [loading, setLoading] = useState(false)
-//   const [error, setError] = useState<string | null>(null)
-//   const modeRef = useRef<Mode>({ type: "new" })
-
-//   const onSuccess = useCallback<PlaidLinkOnSuccess>(async (public_token, metadata) => {
-//     logger.info("[onSuccess] metadata.accounts", metadata.accounts)
-//     try {
-//       const mode = modeRef.current
-//       if (mode.type === "new") {
-//         await exchangeToken(public_token, {
-//           id: metadata.institution!.institution_id,
-//           name: metadata.institution!.name,
-//           accounts: metadata.accounts,
-//         })
-//         logger.info("Bank connected successfully")
-//       } else {
-//         await syncTransactions(mode.itemId)
-//         logger.info("Accounts synced successfully")
-//       }
-//       setLinkToken(null)
-//       onSuccessCallback?.()
-//     } catch (err) {
-//       logger.error("onSuccess failed", { err })
-//       setError("Something went wrong. Please try again.")
-//     }
-//   }, [onSuccessCallback])
-
-//   const onExit = useCallback<PlaidLinkOnExit>((err) => {
-//     if (err) logger.error("Plaid Link exited with error", { err })
-//     setLinkToken(null)
-//   }, [])
-
-//   const { open, ready } = usePlaidLink({
-//     token: linkToken ?? "",
-//     onSuccess,
-//     onExit,
-//   })
-
-//   useEffect(() => {
-//     if (linkToken && ready) open()
-//   }, [linkToken, ready, open])
-
-//   const handleConnect = async (instId?: string) => {
-//     try {
-//       setLoading(true)
-//       setError(null)
-//       const { link_token, mode, item_id } = await createLinkToken(instId)
-//       logger.info("Link token created", { mode })
-//       modeRef.current = mode === "update" && item_id
-//         ? { type: "update", itemId: item_id }
-//         : { type: "new" }
-//       setLinkToken(link_token)
-//     } catch (err) {
-//       logger.error("createLinkToken failed", { err })
-//       setError("Failed to initialise Plaid. Please try again.")
-//     } finally {
-//       setLoading(false)
-//     }
-//   }
-
-//   return (
-//     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-//       {/* Global connect button */}
-//       <button
-//         onClick={() => handleConnect()}
-//         disabled={loading}
-//         className="bg-[#5fd93a] hover:bg-[#72e84f] text-[#0b0b0b] font-medium text-sm px-5 py-2.5 rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed font-sora"
-//       >
-//         {loading ? "connecting..." : "connect bank"}
-//       </button>
-
-//       {/* Hardcoded Chase — replace with real items from API later */}
-//       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid #1e1e1e", borderRadius: "8px", background: "#111" }}>
-//         <span style={{ fontSize: "13px", color: "#e8e8e8", fontFamily: "Sora, sans-serif" }}>Chase</span>
-//         <button
-//           onClick={() => handleConnect("ins_56")}
-//           disabled={loading}
-//           style={{ fontFamily: "Sora, sans-serif", fontSize: "11px", color: "#555", background: "transparent", border: "1px solid #222", borderRadius: "6px", padding: "5px 12px", cursor: "pointer" }}
-//         >
-//           manage accounts
-//         </button>
-//       </div>
-
-//       {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
-//     </div>
-//   )
-// }

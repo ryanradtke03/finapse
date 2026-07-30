@@ -10,39 +10,21 @@ const items = [
 
 export default function Sidebar() {
   return (
-    <nav
-      style={{
-        width: 230,
-        background: "#0d0d0d",
-        borderRight: "1px solid #272727",
-        padding: "16px 12px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-      }}
-    >
-      <div
-        style={{
-          color: "#f4f4f5",
-          fontWeight: 700,
-          fontSize: 20,
-          padding: "8px 12px 16px",
-        }}
-      >
+    <nav className="flex w-[230px] flex-col gap-1 border-r border-brand-border bg-brand-bg px-3 py-4">
+      <div className="px-3 pb-4 pt-2 text-xl font-bold text-brand-text">
         Finapse
       </div>
       {items.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
-          style={({ isActive }) => ({
-            padding: "10px 12px",
-            borderRadius: 10,
-            textDecoration: "none",
-            color: isActive ? "#4ade4a" : "#8a8a8a",
-            background: isActive ? "rgba(74,222,74,0.12)" : "transparent",
-            fontWeight: isActive ? 700 : 400,
-          })}
+          className={({ isActive }) =>
+            `rounded-lg px-3 py-2.5 no-underline ${
+              isActive
+                ? "bg-brand-green-muted font-bold text-brand-green"
+                : "font-normal text-brand-text-secondary"
+            }`
+          }
         >
           {item.label}
         </NavLink>

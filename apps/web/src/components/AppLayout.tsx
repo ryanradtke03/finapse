@@ -4,11 +4,11 @@ import Sidebar from "./Sidebar";
 
 export default function AppLayout() {
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div className="flex min-h-screen bg-brand-bg">
       <Sidebar />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div className="flex flex-1 flex-col">
         <Header />
-        <main style={{ flex: 1, padding: "24px" }}>
+        <main className="flex-1 bg-brand-bg p-6">
           <Outlet /> {/* current page renders here */}
         </main>
       </div>

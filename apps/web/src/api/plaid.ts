@@ -72,3 +72,27 @@ export const getItems = async (): Promise<PlaidItem[]> => {
 
   return res.json()
 }
+
+export const deleteItem = async (id: string): Promise<void> => {
+  const res = await fetch(`${apiBaseUrl}/plaid/item/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw error;
+  }
+};
+
+export const deleteAccount = async (id: string): Promise<void> => {
+  const res = await fetch(`${apiBaseUrl}/plaid/account/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw error;
+  }
+};

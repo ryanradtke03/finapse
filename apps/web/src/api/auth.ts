@@ -60,4 +60,35 @@ export const logout = async (): Promise<void> => {
     }
 }
 
+export const changePassword = async (
+    currentPassword: string,
+    newPassword: string,
+): Promise<void> => {
+    const res = await fetch(`${apiBaseUrl}/auth/password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error;
+    }
+}
+
+// Named deleteUserAccount (not deleteAccount) to avoid ambiguity with
+// api/plaid.ts's deleteAccount, which deletes a single linked bank account.
+export const deleteUserAccount = async (): Promise<void> => {
+    const res = await fetch(`${apiBaseUrl}/auth/me`, {
+        method: "DELETE",
+        credentials: "include",
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error;
+    }
+}
+
 export const googleAuthUrl = `${apiBaseUrl}/auth/google`;
