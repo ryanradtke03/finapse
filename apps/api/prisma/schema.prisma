@@ -108,6 +108,18 @@ model Transaction {
 
   userCategory                   String?             @map("user_category")
 
+  // Free-form user annotations (FIN-48 / FIN-56)
+  notes                          String?
+  tags                           String[]            @default([])
+
+  // PLAID = synced from a bank connection; MANUAL = user-entered (FIN-47).
+  // Only MANUAL transactions may be deleted — a synced row would just come
+  // back on the next Plaid sync.
+  source                         TransactionSource   @default(PLAID)
+
+  // Soft-delete marker (FIN-49). Non-null = hidden from all queries.
+  deletedAt                      DateTime?           @map("deleted_at")
+
   paymentChannel                 String?             @map("payment_channel")
   merchantEntityId               String?             @map("merchant_entity_id")
   location                       String?
@@ -134,6 +146,11 @@ enum RecurringFrequency {
   BIWEEKLY
   MONTHLY
   ANNUALLY
+}
+
+enum TransactionSource {
+  PLAID
+  MANUAL
 }
 
 // ─────────────────────────────────────────

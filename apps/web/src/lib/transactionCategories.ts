@@ -152,6 +152,18 @@ const DETAILED_LABELS: Record<string, string> = {
   SUBSCRIPTION: "Subscription",
 };
 
+// Curated, alphabetized recategorize options for the detail panel (FIN-97).
+// Sourced from the full taxonomy above rather than the categories that
+// merely happen to appear in the user's own data, so you can reassign a
+// transaction to any real spending category — not just ones you already
+// have. Income buckets (not spending) and the SUBSCRIPTION heuristic
+// sentinel (auto-derived, not user-assignable) are excluded.
+export const TRANSACTION_CATEGORY_OPTIONS: { value: string; label: string }[] =
+  Object.entries(DETAILED_LABELS)
+    .filter(([value]) => value !== "SUBSCRIPTION" && !value.startsWith("INCOME"))
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
 // Longest-first so e.g. "RENT_AND_UTILITIES" doesn't get shadowed by a
 // shorter false-prefix match.
 const PRIMARY_PREFIXES = [
