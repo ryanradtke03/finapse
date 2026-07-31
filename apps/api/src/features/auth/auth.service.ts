@@ -154,8 +154,11 @@ export async function changeUserPassword(
 
   const ok = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!ok) {
+    // 400, not 401: the user IS authenticated — their input is just wrong.
+    // A 401 here reads as "session invalid" and can trip client-side
+    // auth interceptors into logging the user out.
     throw Object.assign(new Error("Current password is incorrect"), {
-      status: 401,
+      status: 400,
     });
   }
 

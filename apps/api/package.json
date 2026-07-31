@@ -14,7 +14,8 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests yet\" && exit 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:seed": "prisma db seed",
     "db:seed:dev": "NODE_ENV=development prisma db seed"
   },
@@ -24,7 +25,6 @@
   "dependencies": {
     "@finapse/types": "*",
     "@prisma/adapter-pg": "^7.4.0",
-    "plaid": "^41.4.0",
     "@prisma/client": "^7.4.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -34,6 +34,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.18.0",
+    "plaid": "^41.4.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -50,6 +51,7 @@
     "prisma": "^7.4.0",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.10"
   }
 }

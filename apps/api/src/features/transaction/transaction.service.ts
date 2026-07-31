@@ -79,7 +79,10 @@ export async function getTransactionsList(params: GetTransactionsParams) {
 // detailed row under that bucket, so old budgets keep working unchanged. A
 // "SUBSCRIPTION" value is a sentinel matched against the heuristic
 // recurringIds set rather than a stored column.
-function buildDetailedCategoryWhere(
+//
+// Exported (rather than module-private) purely so it can be unit tested
+// without a live DB — it just builds a plain WhereInput object, no I/O.
+export function buildDetailedCategoryWhere(
   categories: string[],
   recurringIds: Set<string>,
 ): Prisma.TransactionWhereInput {
@@ -109,47 +112,86 @@ function buildDetailedCategoryWhere(
 
 const RECURRING_MIN_GAP_DAYS = 25;
 const RECURRING_MAX_GAP_DAYS = 35;
-const RECURRING_AMOUNT_TOLERANCE = 0.1; // 10%
+const RECURRING_AMOUNT_TOLERANCE = 0.03; // 3% — real subscriptions charge the same amount every cycle; this only covers tax/FX rounding, not "roughly similar" purchases.
+
+// Categories where recurring billing is actually plausible. Dining,
+// transportation, travel, general merchandise, bank fees, etc. are
+// inherently one-off/variable purchases — even if a coincidence makes two or
+// three of them land ~monthly apart for a similar amount (common with Plaid
+// Sandbox's small, repetitive set of synthetic merchants), that's not good
+// evidence of a subscription. Checked against personalFinanceCategory
+// (primary level, always populated) rather than the detailed column, so this
+// works the same on old and new transactions regardless of backfill status.
+const SUBSCRIPTION_ELIGIBLE_CATEGORIES = new Set([
+  "RENT_AND_UTILITIES",
+  "ENTERTAINMENT",
+  "GENERAL_SERVICES",
+  "PERSONAL_CARE",
+]);
+
+// One row's worth of input to the recurring-detection heuristic. Deliberately
+// plain (amount: number, not Prisma.Decimal) so computeRecurringIds has no
+// dependency on Prisma and can be unit tested with hand-built fixtures — see
+// __tests__/recurring-detection.test.ts.
+export interface RecurringCandidateRow {
+  id: string;
+  accountId: string;
+  merchantName: string | null;
+  name: string;
+  date: Date;
+  amount: number;
+  personalFinanceCategory: string | null;
+}
 
 // Heuristic recurring/subscription detector: flags a transaction as
-// recurring if the same merchant charged the same account at least twice
-// with a roughly monthly cadence and a similar amount. Plaid's dedicated
+// recurring if the same merchant charged the same account at least THREE
+// times with a roughly monthly cadence and a similar amount each time, in a
+// category where recurring billing is plausible. Plaid's dedicated
 // recurring-transactions endpoint isn't wired up (isRecurring/
 // recurringFrequency are never set during sync), so this is a lightweight
-// stand-in computed fresh on every call. It's a full-table scan per
-// request — fine at personal-app volumes, revisit if that changes.
-async function getRecurringTransactionIds(userId: string): Promise<Set<string>> {
-  const rows = await prisma.transaction.findMany({
-    where: buildOwnershipWhere(userId),
-    select: {
-      id: true,
-      accountId: true,
-      merchantName: true,
-      name: true,
-      date: true,
-      amount: true,
-    },
-  });
-
+// stand-in.
+//
+// Originally only required TWO occurrences (a single qualifying gap), which
+// flagged way too much as "Subscription" — two one-off purchases from the
+// same merchant, a month apart, for a similar amount, happen by pure
+// coincidence often enough (especially with Plaid Sandbox's small,
+// repetitive set of synthetic merchants/amounts) that a lone matching pair
+// isn't good evidence of an actual subscription. Requiring a THIRD charge
+// that continues the same cadence — i.e. two consecutive qualifying gaps
+// chained together, not just one isolated pair — cuts out most of that
+// false-positive noise while still catching real monthly billing.
+export function computeRecurringIds(rows: RecurringCandidateRow[]): Set<string> {
   const groups = new Map<
     string,
     { id: string; date: Date; amount: number }[]
   >();
 
   for (const r of rows) {
+    // Same account required (accountId is part of the key below) — a Chase
+    // transaction and a BofA transaction can never land in the same group,
+    // no matter how similar. Also gated on category: see
+    // SUBSCRIPTION_ELIGIBLE_CATEGORIES above.
+    if (!r.personalFinanceCategory || !SUBSCRIPTION_ELIGIBLE_CATEGORIES.has(r.personalFinanceCategory)) {
+      continue;
+    }
+
     const merchantKey = (r.merchantName ?? r.name).trim().toLowerCase();
     const key = `${r.accountId}::${merchantKey}`;
     const list = groups.get(key) ?? [];
-    list.push({ id: r.id, date: r.date, amount: r.amount.toNumber() });
+    list.push({ id: r.id, date: r.date, amount: r.amount });
     groups.set(key, list);
   }
 
   const recurringIds = new Set<string>();
 
   for (const occurrences of groups.values()) {
-    if (occurrences.length < 2) continue;
+    if (occurrences.length < 3) continue; // need 2 consecutive qualifying gaps => 3 occurrences minimum
     occurrences.sort((a, b) => a.date.getTime() - b.date.getTime());
 
+    // pairQualifies[i] = does the gap between occurrences[i-1] and
+    // occurrences[i] look like consecutive subscription charges (index 0 is
+    // unused — there's no pair before the first occurrence).
+    const pairQualifies: boolean[] = new Array(occurrences.length).fill(false);
     for (let i = 1; i < occurrences.length; i++) {
       const gapDays =
         (occurrences[i].date.getTime() - occurrences[i - 1].date.getTime()) /
@@ -161,18 +203,55 @@ async function getRecurringTransactionIds(userId: string): Promise<Set<string>> 
           ? amtB === 0
           : Math.abs(amtA - amtB) / amtA <= RECURRING_AMOUNT_TOLERANCE;
 
-      if (
+      pairQualifies[i] =
         gapDays >= RECURRING_MIN_GAP_DAYS &&
         gapDays <= RECURRING_MAX_GAP_DAYS &&
-        amountSimilar
-      ) {
-        recurringIds.add(occurrences[i - 1].id);
-        recurringIds.add(occurrences[i].id);
+        amountSimilar;
+    }
+
+    // Flag occurrences that sit inside a run of at least 2 consecutive
+    // qualifying pairs (3+ chained occurrences). A single isolated
+    // qualifying pair (run length 1) is left unflagged.
+    let i = 1;
+    while (i < occurrences.length) {
+      if (!pairQualifies[i]) {
+        i++;
+        continue;
+      }
+      const runStart = i;
+      while (i < occurrences.length && pairQualifies[i]) i++;
+      const runEnd = i - 1;
+
+      if (runEnd - runStart + 1 >= 2) {
+        for (let occIdx = runStart - 1; occIdx <= runEnd; occIdx++) {
+          recurringIds.add(occurrences[occIdx].id);
+        }
       }
     }
   }
 
   return recurringIds;
+}
+
+// Thin I/O wrapper: fetch the candidate rows from the DB, convert Prisma's
+// Decimal to a plain number, hand off to the pure computeRecurringIds above.
+// It's a full-table scan per request — fine at personal-app volumes, revisit
+// if that changes (see FIN-94).
+async function getRecurringTransactionIds(userId: string): Promise<Set<string>> {
+  const rows = await prisma.transaction.findMany({
+    where: buildOwnershipWhere(userId),
+    select: {
+      id: true,
+      accountId: true,
+      merchantName: true,
+      name: true,
+      date: true,
+      amount: true,
+      personalFinanceCategory: true,
+    },
+  });
+
+  return computeRecurringIds(rows.map((r) => ({ ...r, amount: r.amount.toNumber() })));
 }
 
 // Distinct effective categories across the user's transactions, for the
@@ -252,7 +331,7 @@ export async function updateTransactionCategory(
 // spending the same way Transactions displays it: an explicit user override
 // always wins, then the recurring/subscription heuristic, then Plaid's
 // detailed category, then its primary category.
-function resolveEffectiveCategory(
+export function resolveEffectiveCategory(
   row: {
     id: string;
     userCategory: string | null;

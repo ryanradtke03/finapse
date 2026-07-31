@@ -121,32 +121,39 @@ export default function Accounts() {
 
   return (
     <div>
-      {q.isLoading && <p className="text-brand-text-secondary">Loading…</p>}
+      {/* Header + Connect action always render, independent of load/error
+          state — otherwise a new user with no accounts (or a failed load)
+          would have no way to add a bank. */}
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-brand-text-secondary">
+          {q.isLoading
+            ? "Loading accounts…"
+            : q.isError
+              ? "Couldn't load your accounts"
+              : `${items.length} institution${items.length === 1 ? "" : "s"} · ${accountCount} account${accountCount === 1 ? "" : "s"} linked`}
+        </p>
+        <ConnectBankButton onSuccess={invalidate}>
+          <span className="flex items-center gap-1.5">
+            <PlusIcon />
+            Connect a bank
+          </span>
+        </ConnectBankButton>
+      </div>
+
       {q.isError && (
-        <p className="text-brand-error">Couldn't load accounts.</p>
+        <p className="text-brand-error">
+          Couldn't load accounts. You can still connect a new bank above.
+        </p>
+      )}
+
+      {!q.isLoading && !q.isError && items.length === 0 && (
+        <p className="text-brand-text-secondary">
+          No banks connected yet — connect one to get started.
+        </p>
       )}
 
       {!q.isLoading && !q.isError && (
         <>
-          <div className="mb-6 flex items-center justify-between">
-            <p className="text-sm text-brand-text-secondary">
-              {items.length} institution{items.length === 1 ? "" : "s"} ·{" "}
-              {accountCount} account{accountCount === 1 ? "" : "s"} linked
-            </p>
-            <ConnectBankButton onSuccess={invalidate}>
-              <span className="flex items-center gap-1.5">
-                <PlusIcon />
-                Connect a bank
-              </span>
-            </ConnectBankButton>
-          </div>
-
-          {items.length === 0 && (
-            <p className="text-brand-text-secondary">
-              No banks connected yet.
-            </p>
-          )}
-
           <div className="flex flex-col gap-4">
             {items.map((item) => (
               <div

@@ -45,6 +45,15 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    /* Without this, overscroll/rubber-band scrolling past the top or
+       bottom of the page reveals the browser's default white background
+       instead of the app's dark theme. */
+    background-color: var(--color-brand-bg);
+  }
+
   html {
     font-family: var(--font-sans);
   }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { googleAuthUrl, login, register } from "../api/auth";
 import { FullLogo } from "../components/Logo";
+import { useAuth } from "../context/AuthContext";
 import { loginSchema, signupSchema } from "../schemas/auth";
 import logger from "../utils/logger";
 
@@ -54,6 +55,7 @@ function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
 
 function LoginForm({ onSwitch }: { onSwitch: () => void }) {
   const navigate = useNavigate();
+  const { login: setSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -96,7 +98,8 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
     try {
       const res = await login(email, password);
       logger.debug("Res:", { res });
-      navigate("/Dashboard");
+      setSession(res.user);
+      navigate("/dashboard");
     } catch (error: unknown) {
       if (error instanceof Error) {
         setLoginError(error.message);
@@ -179,6 +182,7 @@ function LoginForm({ onSwitch }: { onSwitch: () => void }) {
 
 function SignupForm({ onSwitch }: { onSwitch: () => void }) {
   const navigate = useNavigate();
+  const { login: setSession } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -233,7 +237,8 @@ function SignupForm({ onSwitch }: { onSwitch: () => void }) {
     try {
       const res = await register(email, password, fullName);
       logger.debug("Res:", { res });
-      navigate("/Dashboard");
+      setSession(res.user);
+      navigate("/dashboard");
     } catch (error: unknown) {
       if (error instanceof Error) {
         setSignupError(error.message);
@@ -367,14 +372,14 @@ export function AuthModal({
             <button
               type="button"
               onClick={() => setActiveTab("login")}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium text-brand-text cursor-pointer ${activeTab === "login" ? "bg-brand-tab-active" : ""}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${activeTab === "login" ? "bg-brand-tab-active text-brand-text" : "text-brand-text-hint hover:text-brand-text"}`}
             >
               Log in
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("signup")}
-              className={`flex-1 py-2 rounded-lg text-sm text-brand-text-hint hover:text-brand-text cursor-pointer ${activeTab === "signup" ? "bg-brand-tab-active" : ""}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${activeTab === "signup" ? "bg-brand-tab-active text-brand-text" : "text-brand-text-hint hover:text-brand-text"}`}
             >
               Sign up
             </button>
