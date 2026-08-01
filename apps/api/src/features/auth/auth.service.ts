@@ -129,6 +129,20 @@ export async function getUserProfile(userId: string) {
   };
 }
 
+// Update editable profile fields (currently just the display name). Returns
+// the same shape as getUserProfile so callers can refresh their user state.
+export async function updateUserProfile(
+  userId: string,
+  data: { fullName: string },
+) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { fullName: data.fullName },
+  });
+
+  return getUserProfile(userId);
+}
+
 export async function changeUserPassword(
   userId: string,
   currentPassword: string,

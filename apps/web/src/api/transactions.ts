@@ -20,7 +20,7 @@ export interface TransactionsResponse {
 }
 
 function buildFilterParams(
-  filters: Record<string, string | number | string[] | undefined>,
+  filters: TransactionFilters | SummaryFilters,
 ): URLSearchParams {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {

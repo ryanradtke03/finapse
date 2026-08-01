@@ -60,6 +60,22 @@ export const logout = async (): Promise<void> => {
     }
 }
 
+export const updateProfile = async (fullName: string): Promise<MeResponse> => {
+    const res = await fetch(`${apiBaseUrl}/auth/me`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ fullName }),
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error;
+    }
+
+    return res.json();
+}
+
 export const changePassword = async (
     currentPassword: string,
     newPassword: string,
