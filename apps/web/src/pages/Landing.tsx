@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthModal } from "../components/AuthModal";
 import { FullLogo, LogoText } from "../components/Logo";
+
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  account_exists:
+    "An account with this email already exists. Log in with your password.",
+  google_failed: "Google sign-in failed. Please try again.",
+};
 
 const NAV_LINKS = ["Features", "Pricing", "Blog", "About"];
 const FOOTER_LINKS = ["Privacy", "Terms", "Contact"];
@@ -233,8 +239,27 @@ function StatCard({
 }
 
 export default function Landing() {
-  const [open, setOpen] = useState(false);
+  // A bounced Google sign-in (FIN-103) redirects back with ?authError=… — read
+  // it once at mount so we can open the login modal with the message.
+  const initialAuthCode = new URLSearchParams(window.location.search).get(
+    "authError",
+  );
+  const [open, setOpen] = useState(!!initialAuthCode);
   const [defaultTab, setDefaultTab] = useState<"login" | "signup">("login");
+  const [authError, setAuthError] = useState(
+    initialAuthCode
+      ? (AUTH_ERROR_MESSAGES[initialAuthCode] ?? AUTH_ERROR_MESSAGES.google_failed)
+      : "",
+  );
+
+  // Strip the param so a refresh doesn't reopen the modal. History API (not
+  // setSearchParams) so there's no state update inside the effect.
+  useEffect(() => {
+    if (!initialAuthCode) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("authError");
+    window.history.replaceState({}, "", url);
+  }, [initialAuthCode]);
 
   return (
     <main
@@ -493,8 +518,12 @@ export default function Landing() {
       {/** Auth Modal */}
       <AuthModal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          setAuthError("");
+        }}
         defaultTab={defaultTab}
+        initialError={authError}
       />
     </main>
   );

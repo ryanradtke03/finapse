@@ -53,14 +53,21 @@ function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
   );
 }
 
-function LoginForm({ onSwitch }: { onSwitch: () => void }) {
+function LoginForm({
+  onSwitch,
+  initialError = "",
+}: {
+  onSwitch: () => void;
+  initialError?: string;
+}) {
   const navigate = useNavigate();
   const { login: setSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [emailError, setEmailError] = useState("");
-  const [loginError, setLoginError] = useState("");
+  // Seed with any error passed in (e.g. a bounced Google sign-in, FIN-103).
+  const [loginError, setLoginError] = useState(initialError);
 
   const validateEmail = (value: string) => {
     const result = loginSchema.shape.email.safeParse(value);
@@ -332,10 +339,12 @@ export function AuthModal({
   open,
   onClose,
   defaultTab = "login",
+  initialError = "",
 }: {
   open: boolean;
   onClose: () => void;
   defaultTab?: "login" | "signup";
+  initialError?: string;
 }) {
   const [activeTab, setActiveTab] = useState<"login" | "signup">(defaultTab);
   const [prevOpen, setPrevOpen] = useState(open);
@@ -386,7 +395,10 @@ export function AuthModal({
           </div>
           <div className="mt-4 w-80">
             {activeTab === "login" ? (
-              <LoginForm onSwitch={() => setActiveTab("signup")} />
+              <LoginForm
+                onSwitch={() => setActiveTab("signup")}
+                initialError={initialError}
+              />
             ) : (
               <SignupForm onSwitch={() => setActiveTab("login")} />
             )}

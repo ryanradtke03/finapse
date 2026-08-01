@@ -159,17 +159,50 @@ export async function deleteAccount(
 
 export const googleAuth = passport.authenticate("google", {scope: ["email", "profile"]});
 
-export const googleAuthCallback = [
-  passport.authenticate("google", { session: false, failureRedirect: "/login" }),
-  (req: Request, res: Response) => {
-    const user = req.user as { id: string; email: string; fullName: string };
-    const token = jwt.sign(
-      { sub: user.id, email: user.email, fullName: user.fullName },
-      process.env.JWT_SECRET!,
-      { expiresIn: "7d" } // match whatever you use elsewhere
-    );
-    setAuthCookie(res, token);
-    const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
-    res.redirect(`${clientOrigin}/dashboard`);
-  },
-];
+// CLIENT_ORIGIN may be a comma-separated list (multiple dev ports) — redirects
+// need a single origin, so take the first.
+function firstClientOrigin(): string {
+  return (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
+    .split(",")[0]
+    .trim();
+}
+
+// Custom passport callback (rather than the array form) so we can turn a
+// verify-step failure — e.g. the Google email belongs to a password account
+// (FIN-103) — into a friendly redirect back to the frontend instead of a
+// broken relative `/login` redirect on the API host.
+export function googleAuthCallback(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  passport.authenticate(
+    "google",
+    { session: false },
+    (
+      err: unknown,
+      user: { id: string; email: string; fullName: string } | false | null,
+      info: { message?: string } | undefined,
+    ) => {
+      const clientOrigin = firstClientOrigin();
+
+      if (err) return next(err);
+
+      if (!user) {
+        const reason =
+          info?.message === "account_exists_password"
+            ? "account_exists"
+            : "google_failed";
+        return res.redirect(`${clientOrigin}/?authError=${reason}`);
+      }
+
+      const token = jwt.sign(
+        { sub: user.id, email: user.email, fullName: user.fullName },
+        process.env.JWT_SECRET!,
+        { expiresIn: "7d" },
+      );
+      setAuthCookie(res, token);
+      return res.redirect(`${clientOrigin}/dashboard`);
+    },
+  )(req, res, next);
+}
