@@ -71,8 +71,8 @@ export async function getTransactionsList(params: GetTransactionsParams) {
 }
 
 // Detailed-level match, used by both the Transactions page (multi-select)
-// and getTransactionSummary (Dashboard/Budgets, single value wrapped in a
-// 1-element array). Falls back to the primary category for older rows
+// and getTransactionSummary (Dashboard multi-select; Budgets passes none).
+// Falls back to the primary category for older rows
 // synced before personalFinanceCategoryDetail was populated, AND for
 // Budget.category values stored back when budgets were primary-level only
 // (e.g. "FOOD_AND_DRINK") — the primary-column branch below matches every
@@ -286,18 +286,26 @@ export async function getTransactionById(
   userId: string,
   transactionId: string,
 ) {
-  const transaction = await prisma.transaction.findUnique({
-    where: { id: transactionId },
+  // Ownership is enforced via the where clause (buildOwnershipWhere joins
+  // account.plaidItem.userId). We deliberately `include` only a safe subset
+  // of account fields and NEVER the parent PlaidItem — that row carries the
+  // encrypted Plaid access token and must not leak to the client (FIN-96).
+  const transaction = await prisma.transaction.findFirst({
+    where: { id: transactionId, ...buildOwnershipWhere(userId) },
     include: {
       account: {
-        include: {
-          plaidItem: true,
+        select: {
+          id: true,
+          name: true,
+          mask: true,
+          type: true,
+          subtype: true,
         },
       },
     },
   });
 
-  if (!transaction || transaction.account.plaidItem.userId !== userId) {
+  if (!transaction) {
     throw Object.assign(new Error("Transaction not found"), { status: 404 });
   }
 
@@ -306,23 +314,61 @@ export async function getTransactionById(
   return { ...transaction, isRecurring: recurringIds.has(transaction.id) };
 }
 
-export async function updateTransactionCategory(
+export interface TransactionPatch {
+  userCategory?: string | null;
+  notes?: string | null;
+  tags?: string[];
+}
+
+export async function updateTransaction(
   userId: string,
   transactionId: string,
-  userCategory: string | null,
+  patch: TransactionPatch,
 ) {
-  const transaction = await prisma.transaction.findUnique({
-    where: { id: transactionId },
-    include: { account: { include: { plaidItem: true } } },
+  const existing = await prisma.transaction.findFirst({
+    where: { id: transactionId, ...buildOwnershipWhere(userId) },
+    select: { id: true },
   });
 
-  if (!transaction || transaction.account.plaidItem.userId !== userId) {
+  if (!existing) {
     throw Object.assign(new Error("Transaction not found"), { status: 404 });
   }
 
   return prisma.transaction.update({
     where: { id: transactionId },
-    data: { userCategory },
+    data: {
+      ...(patch.userCategory !== undefined && { userCategory: patch.userCategory }),
+      ...(patch.notes !== undefined && { notes: patch.notes }),
+      ...(patch.tags !== undefined && { tags: patch.tags }),
+    },
+  });
+}
+
+export async function deleteTransaction(
+  userId: string,
+  transactionId: string,
+) {
+  const existing = await prisma.transaction.findFirst({
+    where: { id: transactionId, ...buildOwnershipWhere(userId) },
+    select: { id: true, source: true },
+  });
+
+  if (!existing) {
+    throw Object.assign(new Error("Transaction not found"), { status: 404 });
+  }
+
+  // Synced (Plaid) rows would just reappear on the next sync, so only
+  // user-entered transactions can be removed (FIN-49 / FIN-56).
+  if (existing.source !== "MANUAL") {
+    throw Object.assign(
+      new Error("Only manually added transactions can be deleted"),
+      { status: 400 },
+    );
+  }
+
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { deletedAt: new Date() },
   });
 }
 
@@ -356,7 +402,9 @@ export async function getTransactionSummary(params: GetSummaryParams) {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category && buildDetailedCategoryWhere([category], recurringIds)),
+    ...(category?.length
+      ? buildDetailedCategoryWhere(category, recurringIds)
+      : {}),
     amount: { gt: 0 },
   };
 
@@ -396,7 +444,9 @@ export async function getTransactionSummary(params: GetSummaryParams) {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category && buildDetailedCategoryWhere([category], recurringIds)),
+    ...(category?.length
+      ? buildDetailedCategoryWhere(category, recurringIds)
+      : {}),
     amount: { lt: 0 },
   };
 
@@ -464,11 +514,14 @@ interface GetSummaryParams {
   startDate?: string;
   endDate?: string;
   accountId?: string;
-  category?: string;
+  category?: string[];
 }
 
 function buildOwnershipWhere(userId: string): Prisma.TransactionWhereInput {
   return {
+    // Soft-deleted rows (FIN-49) are hidden everywhere lists/summaries/
+    // categories/recurring detection read through this helper.
+    deletedAt: null,
     account: {
       plaidItem: { userId },
     },

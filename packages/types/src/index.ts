@@ -4,6 +4,8 @@ export type PlaidItemStatus = "ACTIVE" | "NEEDS_REAUTH" | "DISCONNECTED";
 
 export type RecurringFrequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "ANNUALLY";
 
+export type TransactionSource = "PLAID" | "MANUAL";
+
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
 export interface User {
@@ -53,6 +55,9 @@ export interface Transaction {
   personalFinanceCategory: string | null;
   personalFinanceCategoryDetail: string | null;
   userCategory: string | null;
+  notes: string | null;
+  tags: string[];
+  source: TransactionSource;
   paymentChannel: string | null;
   merchantEntityId: string | null;
   location: string | null;

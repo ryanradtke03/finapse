@@ -62,26 +62,43 @@ export const getTransactionCategories = async (): Promise<string[]> => {
   return data.categories;
 };
 
-export const updateTransactionCategory = async (
+export interface TransactionPatch {
+  // `category` maps to the server-side userCategory override; null clears it.
+  category?: string | null;
+  notes?: string | null;
+  tags?: string[];
+}
+
+export const updateTransaction = async (
   id: string,
-  category: string | null,
+  patch: TransactionPatch,
 ): Promise<Transaction> => {
   const res = await fetch(`${apiBaseUrl}/transaction/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ category }),
+    body: JSON.stringify(patch),
   });
   if (!res.ok) throw await res.json();
   const data = await res.json();
   return data.transaction;
 };
 
+export const deleteTransaction = async (id: string): Promise<void> => {
+  const res = await fetch(`${apiBaseUrl}/transaction/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw await res.json();
+};
+
 export interface SummaryFilters {
   accountId?: string;
   startDate?: string;
   endDate?: string;
-  category?: string;
+  // Single value (legacy) or several (Dashboard multi-select) — each entry is
+  // sent as its own repeated `category` query param, same as TransactionFilters.
+  category?: string | string[];
 }
 
 export interface TransactionSummary {

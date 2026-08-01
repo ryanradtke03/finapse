@@ -1,11 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
 import {
+  deleteTransaction,
   getDistinctCategories,
   getTransactionById,
   getTransactionsList,
   getTransactionSummary,
-  updateTransactionCategory,
+  updateTransaction,
 } from "./transaction.service";
 
 // Express parses repeated query keys (?category=a&category=b) into an
@@ -55,11 +56,18 @@ export async function getTransactionCategoriesHandler(
   }
 }
 
-const updateCategorySchema = z.object({
-  category: z.string().min(1).nullable(),
-});
+const updateSchema = z
+  .object({
+    // `category` maps to the user override (userCategory); null clears it.
+    category: z.string().min(1).nullable().optional(),
+    notes: z.string().nullable().optional(),
+    tags: z.array(z.string()).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "No fields to update",
+  });
 
-export async function updateTransactionCategoryHandler(
+export async function updateTransactionHandler(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -68,20 +76,39 @@ export async function updateTransactionCategoryHandler(
     const userId = req.user!.id;
     const { id } = req.params;
 
-    const parsed = updateCategorySchema.safeParse(req.body);
+    const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) {
       return next(
         Object.assign(new Error("Invalid request body"), { status: 400 }),
       );
     }
 
-    const transaction = await updateTransactionCategory(
-      userId,
-      id,
-      parsed.data.category,
-    );
+    const { category, notes, tags } = parsed.data;
+
+    const transaction = await updateTransaction(userId, id, {
+      ...(category !== undefined && { userCategory: category }),
+      ...(notes !== undefined && { notes }),
+      ...(tags !== undefined && { tags }),
+    });
 
     return res.status(200).json({ transaction });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function deleteTransactionHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    await deleteTransaction(userId, id);
+
+    return res.status(204).send();
   } catch (err) {
     return next(err);
   }
@@ -118,7 +145,7 @@ export async function getTransactionSummaryHandler(
       startDate: startDate as string | undefined,
       endDate: endDate as string | undefined,
       accountId: accountId as string | undefined,
-      category: category as string | undefined,
+      category: parseCategoryParam(category),
     };
 
     const summary = await getTransactionSummary(params);
