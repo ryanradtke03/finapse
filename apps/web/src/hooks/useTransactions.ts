@@ -5,12 +5,14 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  createTransaction,
   deleteTransaction,
   getTransaction,
   getTransactionCategories,
   getTransactions,
   getTransactionSummary,
   updateTransaction,
+  type CreateTransactionInput,
   type SummaryFilters,
   type TransactionFilters,
   type TransactionPatch,
@@ -89,6 +91,14 @@ export function useDeleteTransaction() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteTransaction(id),
+    onSuccess: () => invalidateTransactionQueries(queryClient),
+  });
+}
+
+export function useCreateTransaction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateTransactionInput) => createTransaction(input),
     onSuccess: () => invalidateTransactionQueries(queryClient),
   });
 }
