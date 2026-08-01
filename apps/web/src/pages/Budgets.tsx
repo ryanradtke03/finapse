@@ -1,9 +1,12 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { Budget } from "../api/budgets";
-import { createBudget, deleteBudget, updateBudget } from "../api/budgets";
 import { BudgetModal } from "../components/BudgetModal";
-import { useBudgets } from "../hooks/useBudgets";
+import {
+  useBudgets,
+  useCreateBudget,
+  useDeleteBudget,
+  useUpdateBudget,
+} from "../hooks/useBudgets";
 import {
   getTransactionCategoryColor,
   getTransactionCategoryLabel,
@@ -61,13 +64,12 @@ export default function Budgets() {
     startDate: firstOfMonthISO(),
     endDate: todayISO(),
   });
-  const queryClient = useQueryClient();
+  const createMutation = useCreateBudget();
+  const updateMutation = useUpdateBudget();
+  const deleteMutation = useDeleteBudget();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["budgets"] });
 
   // byCategory rows are keyed by detailed category. A budget stored at the
   // primary level (e.g. old budgets created before this was detailed, or
@@ -104,19 +106,17 @@ export default function Budgets() {
 
   const handleSubmit = async (data: { category: string; limitAmount: string }) => {
     if (editing) {
-      await updateBudget(editing.id, data);
+      await updateMutation.mutateAsync({ id: editing.id, data });
     } else {
-      await createBudget({ ...data, periodStart: firstOfMonthISO() });
+      await createMutation.mutateAsync({ ...data, periodStart: firstOfMonthISO() });
     }
-    await invalidate();
   };
 
   const handleDelete = async (budget: Budget) => {
     if (!confirm(`Delete the "${getTransactionCategoryLabel(budget.category)}" budget?`))
       return;
     try {
-      await deleteBudget(budget.id);
-      await invalidate();
+      await deleteMutation.mutateAsync(budget.id);
     } catch (err) {
       logger.error("Delete budget failed", { err: String(err) });
     }
