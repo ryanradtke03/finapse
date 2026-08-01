@@ -9,8 +9,13 @@ import { plaidClient } from "../../lib/plaidClient";
 const SALT_ROUNDS = 12;
 
 export async function registerUser(data: { email: string; password: string; fullName: string }) {
+  // Normalize like loginUser does — otherwise "Foo@x.com" registers but can
+  // never log in (login lowercases), and casing mismatches let duplicate
+  // accounts slip past the unique-email check vs Google sign-ins (FIN-103).
+  const email = normalizeEmail(data.email);
+
   const existingUser = await prisma.user.findUnique({
-    where: { email: data.email },
+    where: { email },
   });
 
   if (existingUser) {
@@ -21,7 +26,7 @@ export async function registerUser(data: { email: string; password: string; full
 
   const user = await prisma.user.create({
     data: {
-      email: data.email,
+      email,
       passwordHash: hashedPassword,
       fullName: data.fullName,
     },
