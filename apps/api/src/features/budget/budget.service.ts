@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/client";
 import { prisma } from "../../db/prisma";
 import { CreateBudgetInput, UpdateBudgetInput } from "./budget.schema";
@@ -6,16 +7,32 @@ export async function createBudget(userId: string, data: CreateBudgetInput){
 
     const {category, limitAmount, periodStart} = data;
 
-    const budget = await prisma.budget.create({
-        data:{
-            userId,
-            category,
-            limitAmount: new Decimal(limitAmount),
-            periodStart: new Date(periodStart),
-        }
-    })
+    try {
+        const budget = await prisma.budget.create({
+            data:{
+                userId,
+                category,
+                limitAmount: new Decimal(limitAmount),
+                periodStart: new Date(periodStart),
+            }
+        })
 
-    return budget;
+        return budget;
+    } catch (err) {
+        // Unique constraint @@unique([userId, category, periodStart]) — a budget
+        // already exists for this category + period. Surface a 409 instead of
+        // letting the raw Prisma error fall through as a generic 500 (FIN-81).
+        if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === "P2002"
+        ) {
+            throw Object.assign(
+                new Error("A budget for this category already exists this period"),
+                { status: 409 },
+            );
+        }
+        throw err;
+    }
 }
 
 export async function listBudgets(userId:string){

@@ -9,6 +9,7 @@ import {
   logout,
   me,
   register,
+  updateProfile,
 } from "./auth.controller";
 
 const router = Router();
@@ -16,6 +17,7 @@ const router = Router();
 router.post("/register", register);
 router.post("/login", login);
 router.get("/me", requireAuth, me);
+router.put("/me", requireAuth, updateProfile);
 router.post("/logout", logout);
 router.put("/password", requireAuth, changePassword);
 router.delete("/me", requireAuth, deleteAccount);

@@ -9,6 +9,7 @@ import {
   getUserProfile,
   loginUser,
   registerUser,
+  updateUserProfile,
 } from "./auth.service";
 
 const registerSchema = z.object({
@@ -25,6 +26,10 @@ const loginSchema = z.object({
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(8),
+});
+
+const updateProfileSchema = z.object({
+  fullName: z.string().trim().min(1).max(100),
 });
 
 function httpError(status: number, message: string) {
@@ -84,6 +89,28 @@ export async function me(req: Request, res: Response, next: NextFunction) {
 
     return res.status(200).json({ user });
   } catch (err) {
+    return next(err);
+  }
+}
+
+export async function updateProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) throw httpError(401, "Not authenticated");
+
+    const parsed = updateProfileSchema.parse(req.body);
+    const user = await updateUserProfile(req.user.id, {
+      fullName: parsed.fullName,
+    });
+
+    return res.status(200).json({ user });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return next(httpError(400, "Invalid request body"));
+    }
     return next(err);
   }
 }
