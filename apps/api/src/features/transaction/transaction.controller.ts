@@ -145,7 +145,7 @@ export async function getTransactionSummaryHandler(
       startDate: startDate as string | undefined,
       endDate: endDate as string | undefined,
       accountId: accountId as string | undefined,
-      category: category as string | undefined,
+      category: parseCategoryParam(category),
     };
 
     const summary = await getTransactionSummary(params);

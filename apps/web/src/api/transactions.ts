@@ -96,7 +96,9 @@ export interface SummaryFilters {
   accountId?: string;
   startDate?: string;
   endDate?: string;
-  category?: string;
+  // Single value (legacy) or several (Dashboard multi-select) — each entry is
+  // sent as its own repeated `category` query param, same as TransactionFilters.
+  category?: string | string[];
 }
 
 export interface TransactionSummary {

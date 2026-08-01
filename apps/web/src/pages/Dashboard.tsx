@@ -12,8 +12,11 @@ import {
 import { Link } from "react-router-dom";
 import type { TransactionFilters } from "../api/transactions";
 import { Dropdown } from "../components/ui/Dropdown";
+import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
+import { TIME_FRAME_OPTIONS, presetRange } from "../lib/dateRanges";
 import { useItems } from "../hooks/useItems";
 import {
+  useTransactionCategories,
   useTransactions,
   useTransactionSummary,
 } from "../hooks/useTransactions";
@@ -22,25 +25,6 @@ import {
   getTransactionCategoryColor,
   getTransactionCategoryLabel,
 } from "../lib/transactionCategories";
-
-const TIME_FRAME_OPTIONS = [
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "month", label: "This month" },
-  { value: "3m", label: "Last 3 months" },
-];
-
-// time-frame presets → concrete date range
-function presetRange(preset: string): { startDate: string; endDate: string } {
-  const end = new Date();
-  const start = new Date();
-  if (preset === "7d") start.setDate(end.getDate() - 7);
-  else if (preset === "30d") start.setDate(end.getDate() - 30);
-  else if (preset === "month") start.setDate(1);
-  else if (preset === "3m") start.setMonth(end.getMonth() - 3);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { startDate: iso(start), endDate: iso(end) };
-}
 
 // same-length window immediately preceding the current one, for "vs last period"
 function previousRange(startDate: string, endDate: string) {
@@ -105,16 +89,10 @@ export default function Dashboard() {
   const summary = useTransactionSummary(filters);
   const list = useTransactions({ ...filters, limit: 10 });
 
-  // Unfiltered-by-category version of the same query, purely to populate the
-  // Category dropdown's option list. Using `summary` for that would make the
-  // list collapse to just the selected category once one's chosen, since
-  // `summary` itself is filtered by it. Dedupes with `summary`'s cache entry
-  // whenever no category is selected (same query key).
-  const categoryOptionsFilters = useMemo(
-    () => ({ ...filters, category: undefined }),
-    [filters],
-  );
-  const categoryOptionsQuery = useTransactionSummary(categoryOptionsFilters);
+  // Full distinct-category list for the filter dropdown (same source the
+  // Transactions page uses) so options aren't limited to categories that
+  // happen to have spending in the current time frame, and come with colors.
+  const categoriesQuery = useTransactionCategories();
 
   const prevFilters = useMemo(() => {
     if (!filters.startDate || !filters.endDate) return undefined;
@@ -127,7 +105,6 @@ export default function Dashboard() {
 
   const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
   const categories = summary.data?.byCategory ?? [];
-  const allCategories = categoryOptionsQuery.data?.byCategory ?? [];
 
   function setFilter<K extends keyof TransactionFilters>(
     key: K,
@@ -183,13 +160,19 @@ export default function Dashboard() {
     })),
   ];
 
-  const categoryOptions = [
-    { value: "", label: "All Categories" },
-    ...allCategories.map((c) => ({
-      value: c.category,
-      label: getTransactionCategoryLabel(c.category),
-    })),
-  ];
+  const categoryOptions = (categoriesQuery.data ?? []).map((value) => ({
+    value,
+    label: getTransactionCategoryLabel(value),
+    color: getTransactionCategoryColor(value),
+  }));
+
+  // filters.category is typed string | string[] (shared with TransactionFilters);
+  // the Dashboard only ever sets it as an array now — normalize for the control.
+  const selectedCategories = Array.isArray(filters.category)
+    ? filters.category
+    : filters.category
+      ? [filters.category]
+      : [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -210,11 +193,17 @@ export default function Dashboard() {
             onChange={applyPreset}
             className="w-44"
           />
-          <Dropdown
-            label="Category"
-            value={filters.category ?? ""}
+          <MultiSelectDropdown
+            label="Categories"
+            values={selectedCategories}
             options={categoryOptions}
-            onChange={(v) => setFilter("category", v)}
+            onChange={(values) =>
+              setFilters((prev) => ({
+                ...prev,
+                category: values.length ? values : undefined,
+              }))
+            }
+            allLabel="All Categories"
             className="w-44"
           />
         </div>

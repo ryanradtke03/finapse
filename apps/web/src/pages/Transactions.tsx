@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import type { TransactionFilters } from "../api/transactions";
 import {
   TransactionDetailPanel,
   type TransactionEditPatch,
@@ -8,6 +7,8 @@ import { CategoryBadge } from "../components/ui/CategoryBadge";
 import { Dropdown } from "../components/ui/Dropdown";
 import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
 import { useItems } from "../hooks/useItems";
+import { useTransactionFilters } from "../hooks/useTransactionFilters";
+import { TIME_FRAME_OPTIONS, presetRange } from "../lib/dateRanges";
 import {
   useDeleteTransaction,
   useInfiniteTransactions,
@@ -45,28 +46,43 @@ function formatMoney(value: number): string {
 }
 
 export default function Transactions() {
-  const [searchInput, setSearchInput] = useState("");
-  const [filters, setFilters] = useState<TransactionFilters>({});
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  // URL-driven filter state (bookmarkable, back/forward works). The returned
+  // `filters` object doubles as the React Query key.
+  const { filters, setFilters } = useTransactionFilters();
+  const [searchInput, setSearchInput] = useState(filters.search ?? "");
   const [selectedId, setSelectedId] = useState<string | undefined>();
 
-  // debounce the search box → only updates filters after typing pauses
+  // Keep the search box in sync when the URL changes externally (e.g. the
+  // user hits back/forward). Render-time adjustment rather than an effect —
+  // same pattern as BudgetModal. Won't clobber in-progress typing because the
+  // URL only catches up to `searchInput` after the debounce below fires.
+  const [lastUrlSearch, setLastUrlSearch] = useState(filters.search ?? "");
+  if ((filters.search ?? "") !== lastUrlSearch) {
+    setLastUrlSearch(filters.search ?? "");
+    setSearchInput(filters.search ?? "");
+  }
+
+  // Debounce the search box → push into the URL only after typing pauses.
   useEffect(() => {
     const t = setTimeout(
-      () => setFilters((f) => ({ ...f, search: searchInput || undefined })),
+      () => setFilters({ search: searchInput || undefined }),
       300,
     );
     return () => clearTimeout(t);
-  }, [searchInput]);
+  }, [searchInput, setFilters]);
+
+  // Resolve the time-frame preset to concrete start/end dates for the query
+  // (the API filters on startDate/endDate; `range` is a UI/URL concern only).
+  const queryFilters = useMemo(() => {
+    const { range, ...rest } = filters;
+    return range ? { ...rest, ...presetRange(range) } : rest;
+  }, [filters]);
 
   const items = useItems();
   const categoriesQuery = useTransactionCategories();
   const updateMutation = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
-  const q = useInfiniteTransactions({
-    ...filters,
-    category: selectedCategories.length > 0 ? selectedCategories : undefined,
-  });
+  const q = useInfiniteTransactions(queryFilters);
   const detail = useTransaction(selectedId);
 
   const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
@@ -94,13 +110,6 @@ export default function Transactions() {
     color: getTransactionCategoryColor(value),
   }));
 
-  function setFilter<K extends keyof TransactionFilters>(
-    key: K,
-    value: TransactionFilters[K],
-  ) {
-    setFilters((prev) => ({ ...prev, [key]: value || undefined }));
-  }
-
   const handleSave = async (patch: TransactionEditPatch) => {
     if (!selectedId) return;
     await updateMutation.mutateAsync({ id: selectedId, patch });
@@ -124,14 +133,6 @@ export default function Transactions() {
             className="w-full bg-transparent text-sm text-brand-text placeholder:text-brand-text-secondary focus:outline-none"
           />
         </div>
-        <MultiSelectDropdown
-          label="Categories"
-          values={selectedCategories}
-          options={categoryOptions}
-          onChange={setSelectedCategories}
-          allLabel="All Categories"
-          className="w-56"
-        />
         <Dropdown
           label="Account"
           value={filters.accountId ?? ""}
@@ -142,7 +143,22 @@ export default function Transactions() {
               label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
             })),
           ]}
-          onChange={(v) => setFilter("accountId", v)}
+          onChange={(v) => setFilters({ accountId: v || undefined })}
+          className="w-56"
+        />
+        <Dropdown
+          label="Time frame"
+          value={filters.range ?? ""}
+          options={[{ value: "", label: "All time" }, ...TIME_FRAME_OPTIONS]}
+          onChange={(v) => setFilters({ range: v || undefined })}
+          className="w-48"
+        />
+        <MultiSelectDropdown
+          label="Categories"
+          values={filters.category ?? []}
+          options={categoryOptions}
+          onChange={(values) => setFilters({ category: values })}
+          allLabel="All Categories"
           className="w-56"
         />
       </div>

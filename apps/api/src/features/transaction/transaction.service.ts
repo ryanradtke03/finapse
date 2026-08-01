@@ -71,8 +71,8 @@ export async function getTransactionsList(params: GetTransactionsParams) {
 }
 
 // Detailed-level match, used by both the Transactions page (multi-select)
-// and getTransactionSummary (Dashboard/Budgets, single value wrapped in a
-// 1-element array). Falls back to the primary category for older rows
+// and getTransactionSummary (Dashboard multi-select; Budgets passes none).
+// Falls back to the primary category for older rows
 // synced before personalFinanceCategoryDetail was populated, AND for
 // Budget.category values stored back when budgets were primary-level only
 // (e.g. "FOOD_AND_DRINK") — the primary-column branch below matches every
@@ -402,7 +402,9 @@ export async function getTransactionSummary(params: GetSummaryParams) {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category && buildDetailedCategoryWhere([category], recurringIds)),
+    ...(category?.length
+      ? buildDetailedCategoryWhere(category, recurringIds)
+      : {}),
     amount: { gt: 0 },
   };
 
@@ -442,7 +444,9 @@ export async function getTransactionSummary(params: GetSummaryParams) {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category && buildDetailedCategoryWhere([category], recurringIds)),
+    ...(category?.length
+      ? buildDetailedCategoryWhere(category, recurringIds)
+      : {}),
     amount: { lt: 0 },
   };
 
@@ -510,7 +514,7 @@ interface GetSummaryParams {
   startDate?: string;
   endDate?: string;
   accountId?: string;
-  category?: string;
+  category?: string[];
 }
 
 function buildOwnershipWhere(userId: string): Prisma.TransactionWhereInput {
