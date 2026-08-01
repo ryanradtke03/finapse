@@ -1,6 +1,7 @@
 import { requireAuth } from "../../middleware/requireAuth";
 import { Router } from 'express';
 import {
+  createTransactionHandler,
   deleteTransactionHandler,
   getTransactionByIdHandler,
   getTransactionCategoriesHandler,
@@ -12,6 +13,7 @@ import {
 const router = Router();
 
 router.get("/", requireAuth, getTransactionHandler)
+router.post("/", requireAuth, createTransactionHandler)
 router.get("/summary", requireAuth, getTransactionSummaryHandler)
 router.get("/categories", requireAuth, getTransactionCategoriesHandler)
 router.get("/:id", requireAuth, getTransactionByIdHandler)

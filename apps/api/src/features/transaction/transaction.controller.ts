@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
 import {
+  createTransaction,
   deleteTransaction,
   getDistinctCategories,
   getTransactionById,
@@ -51,6 +52,56 @@ export async function getTransactionCategoriesHandler(
   try {
     const categories = await getDistinctCategories(req.user!.id);
     return res.status(200).json({ categories });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// Manual transaction entry (FIN-47). `amount` is signed: positive = expense,
+// negative = income (the web form's Expense/Income toggle sets the sign).
+const createSchema = z.object({
+  accountId: z.string().min(1, "Account is required"),
+  amount: z
+    .number()
+    .refine((n) => Number.isFinite(n), "Amount must be a valid number")
+    .refine((n) => n !== 0, "Amount can't be zero"),
+  date: z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), "A valid date is required"),
+  name: z.string().trim().min(1, "Description is required"),
+  category: z.string().min(1, "Category is required"),
+  notes: z.string().trim().nullable().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+export async function createTransactionHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+
+    const parsed = createSchema.safeParse(req.body);
+    if (!parsed.success) {
+      // Surface the first field error so the client shows something useful.
+      const message = parsed.error.issues[0]?.message ?? "Invalid request body";
+      return next(Object.assign(new Error(message), { status: 400 }));
+    }
+
+    const { accountId, amount, date, name, category, notes, tags } = parsed.data;
+
+    const transaction = await createTransaction(userId, {
+      accountId,
+      amount,
+      date,
+      name,
+      category,
+      notes: notes ?? null,
+      tags,
+    });
+
+    return res.status(201).json({ transaction });
   } catch (err) {
     return next(err);
   }

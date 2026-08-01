@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CreateTransactionInput } from "../api/transactions";
+import { TransactionCreateModal } from "../components/TransactionCreateModal";
 import {
   TransactionDetailPanel,
   type TransactionEditPatch,
@@ -10,6 +12,7 @@ import { useItems } from "../hooks/useItems";
 import { useTransactionFilters } from "../hooks/useTransactionFilters";
 import { TIME_FRAME_OPTIONS, presetRange } from "../lib/dateRanges";
 import {
+  useCreateTransaction,
   useDeleteTransaction,
   useInfiniteTransactions,
   useTransaction,
@@ -51,6 +54,7 @@ export default function Transactions() {
   const { filters, setFilters } = useTransactionFilters();
   const [searchInput, setSearchInput] = useState(filters.search ?? "");
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Keep the search box in sync when the URL changes externally (e.g. the
   // user hits back/forward). Render-time adjustment rather than an effect —
@@ -82,6 +86,7 @@ export default function Transactions() {
   const categoriesQuery = useTransactionCategories();
   const updateMutation = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
+  const createMutation = useCreateTransaction();
   const q = useInfiniteTransactions(queryFilters);
   const detail = useTransaction(selectedId);
 
@@ -121,9 +126,18 @@ export default function Transactions() {
     setSelectedId(undefined);
   };
 
+  const accountSelectOptions = accounts.map((a) => ({
+    value: a.id,
+    label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
+  }));
+
+  const handleCreate = (input: CreateTransactionInput) =>
+    createMutation.mutateAsync(input).then(() => undefined);
+
   return (
     <div>
-      <div className="mb-5 flex flex-wrap gap-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-3">
         <div className="flex min-w-64 flex-1 items-center gap-2 rounded-xl border border-brand-border-subtle bg-brand-surface px-4 py-2.5">
           <SearchIcon />
           <input
@@ -161,6 +175,18 @@ export default function Transactions() {
           allLabel="All Categories"
           className="w-56"
         />
+        </div>
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          disabled={accounts.length === 0}
+          title={
+            accounts.length === 0 ? "Connect an account first" : undefined
+          }
+          className="shrink-0 cursor-pointer rounded-xl bg-brand-green px-4 py-2.5 text-sm font-semibold text-brand-bg transition-colors duration-200 hover:bg-brand-green-hover disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          + Add transaction
+        </button>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
@@ -243,6 +269,14 @@ export default function Transactions() {
         onClose={() => setSelectedId(undefined)}
         onSave={handleSave}
         onDelete={handleDelete}
+      />
+
+      <TransactionCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        accounts={accountSelectOptions}
+        categoryOptions={TRANSACTION_CATEGORY_OPTIONS}
+        onSubmit={handleCreate}
       />
     </div>
   );

@@ -101,9 +101,9 @@ export async function deleteItem(
 
     await deletePlaidItem(userId, id);
 
-    res.status(200).json({ message: "Bank removed successfully" });
+    return res.status(200).json({ message: "Bank removed successfully" });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 }
 

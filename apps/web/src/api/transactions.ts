@@ -139,3 +139,28 @@ export const getTransaction = async (id: string): Promise<Transaction> => {
   const data = await res.json();
   return data.transaction; // controller wraps { transaction }
 };
+
+export interface CreateTransactionInput {
+  accountId: string;
+  // Signed: positive = expense, negative = income (set by the form's toggle).
+  amount: number;
+  date: string; // YYYY-MM-DD
+  name: string; // description / payee
+  category: string;
+  notes?: string | null;
+  tags?: string[];
+}
+
+export const createTransaction = async (
+  input: CreateTransactionInput,
+): Promise<Transaction> => {
+  const res = await fetch(`${apiBaseUrl}/transaction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await res.json();
+  const data = await res.json();
+  return data.transaction; // controller wraps { transaction }
+};

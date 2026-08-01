@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma";
 
@@ -370,6 +371,62 @@ export async function deleteTransaction(
     where: { id: transactionId },
     data: { deletedAt: new Date() },
   });
+}
+
+export interface CreateTransactionInput {
+  accountId: string;
+  // Signed like Plaid's convention (and everything downstream): positive =
+  // spending/expense, negative = income. The web form's Expense/Income toggle
+  // produces the sign.
+  amount: number;
+  date: string;
+  name: string;
+  category: string;
+  notes?: string | null;
+  tags?: string[];
+}
+
+// Manual (non-Plaid) transaction entry (FIN-47). The account must belong to
+// the user; the chosen category is stored as the user override so it wins in
+// resolveEffectiveCategory just like a recategorized Plaid row.
+export async function createTransaction(
+  userId: string,
+  input: CreateTransactionInput,
+) {
+  // Ownership check via the same join used everywhere else — the account has
+  // to hang off one of this user's Plaid items.
+  const account = await prisma.account.findFirst({
+    where: { id: input.accountId, plaidItem: { userId } },
+    select: { id: true },
+  });
+
+  if (!account) {
+    throw Object.assign(new Error("Account not found"), { status: 404 });
+  }
+
+  const created = await prisma.transaction.create({
+    data: {
+      // Manual rows have no Plaid id, but the column is required + unique.
+      plaidTransactionId: `manual:${randomUUID()}`,
+      source: "MANUAL",
+      accountId: input.accountId,
+      amount: input.amount,
+      date: new Date(input.date),
+      name: input.name,
+      userCategory: input.category,
+      notes: input.notes ?? null,
+      tags: input.tags ?? [],
+    },
+    include: {
+      account: {
+        select: { id: true, name: true, mask: true, type: true, subtype: true },
+      },
+    },
+  });
+
+  // Shape-compatible with getTransactionById; a brand-new row is never
+  // flagged recurring (the heuristic needs 3+ occurrences).
+  return { ...created, isRecurring: false };
 }
 
 // Effective category for one row, mirroring the frontend's

@@ -16,6 +16,15 @@ export const getBudgets = async (): Promise<Budget[]> => {
   return res.json(); // listBudgetHandler returns the array directly
 };
 
+export const getBudget = async (id: string): Promise<Budget> => {
+  const res = await fetch(`${apiBaseUrl}/budget/${id}`, {
+    method: "GET",
+    credentials: "include",
+  });
+  if (!res.ok) throw await res.json();
+  return res.json();
+};
+
 export interface BudgetInput {
   category: string;
   limitAmount: string;
