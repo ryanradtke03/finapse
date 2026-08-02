@@ -34,11 +34,24 @@ passport.use(
           if (existing.passwordHash) {
             return done(null, false, { message: "account_exists_password" });
           }
+          // Google has verified this address; backfill the flag for accounts
+          // created before email verification existed.
+          if (!existing.emailVerified) {
+            await prisma.user.update({
+              where: { id: existing.id },
+              data: { emailVerified: true },
+            });
+          }
           return done(null, existing);
         }
 
         const user = await prisma.user.create({
-          data: { email, passwordHash: "", fullName: profile.displayName ?? "" },
+          data: {
+            email,
+            passwordHash: "",
+            fullName: profile.displayName ?? "",
+            emailVerified: true, // Google verifies the email address
+          },
         });
 
         return done(null, user);

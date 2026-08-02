@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { googleAuthUrl, login, register } from "../api/auth";
+import { forgotPassword, googleAuthUrl, login, register } from "../api/auth";
 import { FullLogo } from "../components/Logo";
 import { useAuth } from "../context/AuthContext";
 import { loginSchema, signupSchema } from "../schemas/auth";
@@ -68,6 +68,86 @@ function LoginForm({
   const [emailError, setEmailError] = useState("");
   // Seed with any error passed in (e.g. a bounced Google sign-in, FIN-103).
   const [loginError, setLoginError] = useState(initialError);
+
+  // Forgot-password sub-view (FIN-100).
+  const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    const result = loginSchema.shape.email.safeParse(email);
+    if (!result.success) {
+      setForgotError(result.error.issues[0].message);
+      return;
+    }
+    setForgotSubmitting(true);
+    try {
+      await forgotPassword(email);
+      setForgotSent(true);
+    } catch (error: unknown) {
+      const apiError = error as { error?: string };
+      setForgotError(apiError?.error ?? "Something went wrong");
+    } finally {
+      setForgotSubmitting(false);
+    }
+  };
+
+  if (mode === "forgot") {
+    return (
+      <form onSubmit={handleForgot}>
+        <div>
+          <h3 className="text-brand-text font-semibold text-lg">
+            Reset your password
+          </h3>
+          <p className="text-brand-text-secondary text-left text-sm">
+            Enter your email and we'll send a reset link.
+          </p>
+        </div>
+        {forgotSent ? (
+          <p className="mt-4 text-sm text-brand-green">
+            If an account exists for that email, a reset link is on its way.
+          </p>
+        ) : (
+          <div className="mt-4">
+            <span className="text-brand-text-secondary text-xs">Email</span>
+            <input
+              className="mt-1 w-full bg-brand-bg border border-brand-border-subtle rounded-md py-2 px-2 text-brand-text focus:outline-none"
+              autoComplete="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            {forgotError && (
+              <p className="text-xs text-brand-error mt-1">{forgotError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={forgotSubmitting}
+              className="mt-4 border border-brand-border-subtle w-full rounded-xl py-2 text-sm text-brand-text cursor-pointer transition-colors duration-200 hover:border-brand-border hover:bg-brand-border-subtle disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {forgotSubmitting ? "Sending…" : "Send reset link"}
+            </button>
+          </div>
+        )}
+        <div className="flex items-center w-full justify-center mt-6">
+          <button
+            type="button"
+            onClick={() => {
+              setMode("login");
+              setForgotSent(false);
+              setForgotError("");
+            }}
+            className="text-xs text-brand-green cursor-pointer"
+          >
+            Back to log in
+          </button>
+        </div>
+      </form>
+    );
+  }
 
   const validateEmail = (value: string) => {
     const result = loginSchema.shape.email.safeParse(value);
@@ -146,7 +226,8 @@ function LoginForm({
             <span className="text-brand-text-secondary text-xs">Password</span>
             <button
               type="button"
-              className="text-brand-text-secondary text-xs cursor-pointer"
+              onClick={() => setMode("forgot")}
+              className="text-brand-text-secondary text-xs cursor-pointer hover:text-brand-text"
             >
               Forgot
             </button>

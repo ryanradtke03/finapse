@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import { VerifyEmailBanner } from "./VerifyEmailBanner";
 
 export default function AppLayout() {
   return (
@@ -8,6 +9,7 @@ export default function AppLayout() {
       <Sidebar />
       <div className="flex flex-1 flex-col">
         <Header />
+        <VerifyEmailBanner />
         <main className="flex-1 bg-brand-bg p-6">
           <Outlet /> {/* current page renders here */}
         </main>

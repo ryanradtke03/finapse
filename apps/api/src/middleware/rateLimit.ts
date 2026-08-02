@@ -21,15 +21,28 @@ export const apiLimiter = rateLimit({
   handler: tooManyRequests,
 });
 
-// Strict limiter for credential endpoints (login / register / password).
+// Strict limiter for credential endpoints (login / register / password) and
+// token-consuming endpoints (verify-email / reset-password).
 // `skipSuccessfulRequests` means only FAILED attempts count toward the limit,
-// so a legit user logging in repeatedly is fine while brute-force/credential-
-// stuffing gets throttled.
+// so a legit user logging in repeatedly is fine while brute-force / credential-
+// stuffing / token-guessing gets throttled.
 export const authLimiter = rateLimit({
   windowMs: WINDOW_MS,
   limit: 10, // failed attempts per IP per window
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
+  handler: tooManyRequests,
+});
+
+// Tight limiter for endpoints that SEND an email (forgot-password, resend
+// verification). Counts every request (these return 200 even when no email is
+// sent, so skipping successes would leave them unlimited) to prevent inbox
+// flooding / email bombing.
+export const emailLimiter = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 5, // per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
   handler: tooManyRequests,
 });

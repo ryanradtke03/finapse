@@ -514,10 +514,6 @@ export async function getTransactionSummary(params: GetSummaryParams) {
 
   const byDay = await getByDaySummary(baseWhere, incomeWhere);
 
-  console.log(
-    `[getTransactionSummary] userId=${userId} categories=${byCategory.length}`,
-  );
-
   return {
     byCategory,
     byDay,

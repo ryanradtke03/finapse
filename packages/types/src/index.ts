@@ -17,6 +17,9 @@ export interface User {
   // the Settings page's "Signed in with Google" badge and disables the
   // change-password form.
   hasPassword: boolean;
+  // Whether the user has confirmed their email. Drives the "verify your email"
+  // banner and gates bank connections.
+  emailVerified: boolean;
 }
 
 export interface PlaidItem {

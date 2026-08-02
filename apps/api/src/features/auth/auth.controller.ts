@@ -9,7 +9,11 @@ import {
   getUserProfile,
   loginUser,
   registerUser,
+  requestPasswordReset,
+  resendVerification,
+  resetPassword,
   updateUserProfile,
+  verifyEmail,
 } from "./auth.service";
 
 const registerSchema = z.object({
@@ -32,6 +36,19 @@ const updateProfileSchema = z.object({
   fullName: z.string().trim().min(1).max(100),
 });
 
+const tokenSchema = z.object({
+  token: z.string().min(1),
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+
 function httpError(status: number, message: string) {
   return Object.assign(new Error(message), { status });
 }
@@ -52,6 +69,7 @@ export async function register(
         fullName: user.fullName,
         createdAt: user.createdAt,
         hasPassword: user.passwordHash !== "",
+        emailVerified: user.emailVerified,
       },
     });
   } catch (err) {
@@ -152,6 +170,72 @@ export async function deleteAccount(
     clearAuthCookie(res);
 
     return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function verifyEmailHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const parsed = tokenSchema.safeParse(req.body);
+    if (!parsed.success) return next(httpError(400, "Invalid request body"));
+
+    await verifyEmail(parsed.data.token);
+    return res.status(200).json({ message: "Email verified" });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function resendVerificationHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) throw httpError(401, "Not authenticated");
+
+    const sent = await resendVerification(req.user.id);
+    return res.status(200).json({ sent });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function forgotPasswordHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const parsed = forgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return next(httpError(400, "Invalid request body"));
+
+    await requestPasswordReset(parsed.data.email);
+    // Always the same response, whether or not the email exists (anti-enumeration).
+    return res.status(200).json({
+      message: "If an account exists for that email, a reset link has been sent.",
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function resetPasswordHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const parsed = resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return next(httpError(400, "Invalid request body"));
+
+    await resetPassword(parsed.data.token, parsed.data.newPassword);
+    return res.status(200).json({ message: "Password updated" });
   } catch (err) {
     return next(err);
   }
