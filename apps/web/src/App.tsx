@@ -5,13 +5,17 @@ import Accounts from "./pages/Accounts";
 import Budgets from "./pages/Budgets";
 import Dashboard from "./pages/Dashboard";
 import Landing from "./pages/Landing";
+import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import Transactions from "./pages/Transactions";
+import VerifyEmail from "./pages/VerifyEmail";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>

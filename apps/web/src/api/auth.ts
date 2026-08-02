@@ -93,6 +93,65 @@ export const changePassword = async (
     }
 }
 
+export const forgotPassword = async (email: string): Promise<void> => {
+    const res = await fetch(`${apiBaseUrl}/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error;
+    }
+}
+
+export const resetPassword = async (
+    token: string,
+    newPassword: string,
+): Promise<void> => {
+    const res = await fetch(`${apiBaseUrl}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ token, newPassword }),
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error;
+    }
+}
+
+export const verifyEmail = async (token: string): Promise<void> => {
+    const res = await fetch(`${apiBaseUrl}/auth/verify-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ token }),
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error;
+    }
+}
+
+export const resendVerification = async (): Promise<{ sent: boolean }> => {
+    const res = await fetch(`${apiBaseUrl}/auth/resend-verification`, {
+        method: "POST",
+        credentials: "include",
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error;
+    }
+
+    return res.json(); // { sent } — false if already verified
+}
+
 // Named deleteUserAccount (not deleteAccount) to avoid ambiguity with
 // api/plaid.ts's deleteAccount, which deletes a single linked bank account.
 export const deleteUserAccount = async (): Promise<void> => {

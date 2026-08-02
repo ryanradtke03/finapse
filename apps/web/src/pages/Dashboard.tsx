@@ -83,7 +83,9 @@ export default function Dashboard() {
   const [chartMode, setChartMode] = useState<"total" | "category" | "avg">(
     "total",
   );
-  const [showIncome, setShowIncome] = useState(false);
+  // Income shown by default on the time-series chart (FIN-109); the legend
+  // still toggles it off.
+  const [showIncome, setShowIncome] = useState(true);
 
   const items = useItems();
   const summary = useTransactionSummary(filters);

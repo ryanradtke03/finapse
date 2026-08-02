@@ -4,9 +4,40 @@ import * as jwt from "jsonwebtoken";
 import { requireEnv } from "../../config/env";
 import { prisma } from "../../db/prisma";
 import { decrypt } from "../../lib/encryption";
+import { sendEmail } from "../../lib/email";
 import { plaidClient } from "../../lib/plaidClient";
+import { createToken, consumeToken } from "./token.service";
 
 const SALT_ROUNDS = 12;
+
+const EMAIL_VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+// Where the emailed links point (the frontend). Falls back to the first
+// configured client origin, then localhost.
+function appUrl(): string {
+  return (
+    process.env.APP_URL ??
+    process.env.CLIENT_ORIGIN ??
+    "http://localhost:5173"
+  )
+    .split(",")[0]
+    .trim();
+}
+
+async function sendVerificationEmail(user: { id: string; email: string }) {
+  const token = await createToken(
+    user.id,
+    "EMAIL_VERIFY",
+    EMAIL_VERIFY_TTL_MS,
+  );
+  const link = `${appUrl()}/verify-email?token=${token}`;
+  await sendEmail({
+    to: user.email,
+    subject: "Verify your Finapse email",
+    text: `Welcome to Finapse! Confirm your email to unlock bank connections:\n\n${link}\n\nThis link expires in 24 hours.`,
+  });
+}
 
 export async function registerUser(data: { email: string; password: string; fullName: string }) {
   // Normalize like loginUser does — otherwise "Foo@x.com" registers but can
@@ -32,7 +63,89 @@ export async function registerUser(data: { email: string; password: string; full
     },
   });
 
+  // Kick off email verification. Best-effort: a failure here must NOT fail the
+  // whole registration (the account already exists) — the user can resend from
+  // the app's "verify your email" banner.
+  try {
+    await sendVerificationEmail(user);
+  } catch (err) {
+    console.error("[registerUser] verification email failed to send:", err);
+  }
+
   return user;
+}
+
+// Confirm ownership of the email via a verification token (from the emailed
+// link). Marks the user verified. Throws 400 on an invalid/expired token.
+export async function verifyEmail(rawToken: string) {
+  const userId = await consumeToken(rawToken, "EMAIL_VERIFY");
+  if (!userId) {
+    throw Object.assign(
+      new Error("This verification link is invalid or has expired."),
+      { status: 400 },
+    );
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { emailVerified: true },
+  });
+}
+
+// Re-issue a verification email for the current user. Returns false (no email
+// sent) if the user is already verified, so the caller can react.
+export async function resendVerification(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, emailVerified: true },
+  });
+  if (!user || user.emailVerified) return false;
+  await sendVerificationEmail(user);
+  return true;
+}
+
+// Begin a password reset. Always resolves without revealing whether the email
+// exists (anti-enumeration); only sends a link when there's a password
+// account for it (Google-only accounts have no password to reset).
+export async function requestPasswordReset(rawEmail: string) {
+  const email = normalizeEmail(rawEmail);
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true, passwordHash: true },
+  });
+
+  if (!user || !user.passwordHash) return;
+
+  const token = await createToken(
+    user.id,
+    "PASSWORD_RESET",
+    PASSWORD_RESET_TTL_MS,
+  );
+  const link = `${appUrl()}/reset-password?token=${token}`;
+  await sendEmail({
+    to: user.email,
+    subject: "Reset your Finapse password",
+    text: `We received a request to reset your password. Set a new one:\n\n${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+  });
+}
+
+// Complete a password reset with a valid token. Completing it proves the user
+// controls the inbox, so we also mark the email verified. Throws 400 on an
+// invalid/expired token.
+export async function resetPassword(rawToken: string, newPassword: string) {
+  const userId = await consumeToken(rawToken, "PASSWORD_RESET");
+  if (!userId) {
+    throw Object.assign(
+      new Error("This reset link is invalid or has expired."),
+      { status: 400 },
+    );
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: hashedPassword, emailVerified: true },
+  });
 }
 
 type LoginInput = {
@@ -45,6 +158,7 @@ type PublicUser = {
   email: string;
   fullName: string;
   hasPassword: boolean;
+  emailVerified: boolean;
 };
 
 function normalizeEmail(email: string) {
@@ -63,7 +177,13 @@ export async function loginUser(input: LoginInput): Promise<{
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, email: true, fullName: true, passwordHash: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      passwordHash: true,
+      emailVerified: true,
+    },
   });
 
   if (!user) {
@@ -98,6 +218,7 @@ export async function loginUser(input: LoginInput): Promise<{
       email: user.email,
       fullName: user.fullName,
       hasPassword: user.passwordHash !== "",
+      emailVerified: user.emailVerified,
     },
     cookie: {
       name: "token",
@@ -118,7 +239,14 @@ export async function loginUser(input: LoginInput): Promise<{
 export async function getUserProfile(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, email: true, fullName: true, passwordHash: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      passwordHash: true,
+      emailVerified: true,
+      createdAt: true,
+    },
   });
 
   if (!user) {
@@ -131,6 +259,7 @@ export async function getUserProfile(userId: string) {
     fullName: user.fullName,
     createdAt: user.createdAt.toISOString(),
     hasPassword: user.passwordHash !== "",
+    emailVerified: user.emailVerified,
   };
 }
 
