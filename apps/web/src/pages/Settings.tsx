@@ -38,7 +38,8 @@ export default function Settings() {
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  const canChangePassword = user?.hasPassword ?? false;
+  // Google accounts have no password to change (FIN-85).
+  const canChangePassword = user?.provider === "password";
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();

@@ -4,6 +4,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -75,14 +77,28 @@ function ChartTooltip({
   );
 }
 
+function DonutTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { value: number; payload: { label: string } }[];
+}) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0];
+  return (
+    <div className="rounded-lg border border-brand-border bg-brand-surface-raised px-3 py-2 text-xs shadow-xl">
+      <p className="text-brand-text-secondary">{row.payload.label}</p>
+      <p className="font-semibold text-brand-text">{formatMoney(row.value)}</p>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [filters, setFilters] = useState<TransactionFilters>(
     presetRange("30d"),
   );
   const [timeFrame, setTimeFrame] = useState("30d");
-  const [chartMode, setChartMode] = useState<"total" | "category" | "avg">(
-    "total",
-  );
   // Income shown by default on the time-series chart (FIN-109); the legend
   // still toggles it off.
   const [showIncome, setShowIncome] = useState(true);
@@ -106,7 +122,6 @@ export default function Dashboard() {
   const prevSummary = useTransactionSummary(prevFilters);
 
   const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
-  const categories = summary.data?.byCategory ?? [];
 
   function setFilter<K extends keyof TransactionFilters>(
     key: K,
@@ -153,6 +168,29 @@ export default function Dashboard() {
     if (chartData.length === 0) return null;
     return chartData.reduce((max, d) => (d.spending > max.spending ? d : max)).date;
   }, [chartData]);
+
+  // Spending-by-category donut: top 6 slices, everything else folded into
+  // "Other" so it stays legible regardless of how many categories exist.
+  const donutData = useMemo(() => {
+    const rows = summary.data?.byCategory ?? [];
+    const sorted = [...rows].sort((a, b) => b.total - a.total);
+    const slices = sorted.slice(0, 6).map((c) => ({
+      key: c.category,
+      label: getTransactionCategoryLabel(c.category),
+      value: c.total,
+      color: getTransactionCategoryColor(c.category),
+    }));
+    const restTotal = sorted.slice(6).reduce((sum, c) => sum + c.total, 0);
+    if (restTotal > 0) {
+      slices.push({
+        key: "__other",
+        label: "Other",
+        value: restTotal,
+        color: "#6b7280",
+      });
+    }
+    return slices;
+  }, [summary.data]);
 
   const accountOptions = [
     { value: "", label: "All Accounts" },
@@ -209,32 +247,11 @@ export default function Dashboard() {
             className="w-44"
           />
         </div>
-
-        <div className="flex items-center gap-1 rounded-xl border border-brand-border bg-brand-surface p-1">
-          {(["total", "category", "avg"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setChartMode(m)}
-              className={`cursor-pointer rounded-lg px-4 py-1.5 text-sm font-medium transition-colors duration-150 ${
-                chartMode === m
-                  ? "bg-brand-green text-brand-bg font-semibold"
-                  : "text-brand-text-secondary hover:text-brand-text"
-              }`}
-            >
-              {m === "total"
-                ? "Total"
-                : m === "category"
-                  ? "By category"
-                  : "Avg/day"}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* summary strip */}
-      <div className="flex gap-4">
-        <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
+      <div className="grid grid-cols-4 gap-4">
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
             Spending
           </p>
@@ -245,7 +262,7 @@ export default function Dashboard() {
             {trendLabel(spent, prevSpent)}
           </p>
         </div>
-        <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
             Income
           </p>
@@ -256,7 +273,7 @@ export default function Dashboard() {
             {trendLabel(income, prevIncome)}
           </p>
         </div>
-        <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
             Net
           </p>
@@ -268,192 +285,209 @@ export default function Dashboard() {
             {trendLabel(net, prevNet)}
           </p>
         </div>
+        <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+          <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
+            Avg / day
+          </p>
+          <p className="mt-1 text-2xl font-bold text-brand-text">
+            {formatMoney(days > 0 ? spent / days : 0)}
+          </p>
+          <p className="mt-1 text-xs text-brand-text-secondary">
+            over {Math.round(days)} days
+          </p>
+        </div>
       </div>
 
-      {/* chart + recent transactions */}
-      <div className="grid grid-cols-[2fr_1fr] gap-4">
+      {/* charts */}
+      <div className="grid grid-cols-[1.6fr_1fr] gap-4">
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-          {chartMode === "total" && (
-            <>
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-brand-text">
-                  Spending over time
-                </h3>
-                <div className="flex items-center gap-4 text-xs text-brand-text-secondary">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-brand-green" />
-                    Spending
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowIncome((v) => !v)}
-                    className="flex cursor-pointer items-center gap-1.5"
-                  >
-                    <span
-                      className={`h-2 w-2 rounded-full ${showIncome ? "bg-brand-text-secondary" : "border border-brand-text-secondary bg-transparent"}`}
-                    />
-                    Income
-                  </button>
-                </div>
-              </div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-brand-text">Spending over time</h3>
+            <div className="flex items-center gap-4 text-xs text-brand-text-secondary">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-brand-green" />
+                Spending
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowIncome((v) => !v)}
+                className="flex cursor-pointer items-center gap-1.5"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${showIncome ? "bg-brand-text-secondary" : "border border-brand-text-secondary bg-transparent"}`}
+                />
+                Income
+              </button>
+            </div>
+          </div>
 
-              {chartData.length === 0 ? (
-                <p className="py-16 text-center text-sm text-brand-text-secondary">
-                  No transactions in this period.
-                </p>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid
-                      vertical={false}
-                      stroke="var(--color-brand-border-subtle)"
+          {chartData.length === 0 ? (
+            <p className="py-16 text-center text-sm text-brand-text-secondary">
+              No transactions in this period.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={chartData}>
+                <CartesianGrid
+                  vertical={false}
+                  stroke="var(--color-brand-border-subtle)"
+                />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: "#777777", fontSize: 11 }}
+                  label={{
+                    value: "Day of month",
+                    position: "insideBottom",
+                    offset: -5,
+                    fill: "#777777",
+                    fontSize: 11,
+                  }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: "#777777", fontSize: 11 }}
+                  tickFormatter={(v) => `$${v}`}
+                  width={48}
+                />
+                <Tooltip
+                  content={<ChartTooltip />}
+                  cursor={{ fill: "var(--color-brand-border-subtle)" }}
+                />
+                <Bar dataKey="spending" radius={[4, 4, 0, 0]}>
+                  {chartData.map((d) => (
+                    <Cell
+                      key={d.date}
+                      fill="var(--color-brand-green)"
+                      fillOpacity={d.date === maxSpendDate ? 1 : 0.55}
                     />
-                    <XAxis
-                      dataKey="day"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#777777", fontSize: 11 }}
-                      label={{
-                        value: "Day of month",
-                        position: "insideBottom",
-                        offset: -5,
-                        fill: "#777777",
-                        fontSize: 11,
-                      }}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#777777", fontSize: 11 }}
-                      tickFormatter={(v) => `$${v}`}
-                      width={48}
-                    />
-                    <Tooltip
-                      content={<ChartTooltip />}
-                      cursor={{ fill: "var(--color-brand-border-subtle)" }}
-                    />
-                    <Bar dataKey="spending" radius={[4, 4, 0, 0]}>
-                      {chartData.map((d) => (
-                        <Cell
-                          key={d.date}
-                          fill="var(--color-brand-green)"
-                          fillOpacity={d.date === maxSpendDate ? 1 : 0.55}
-                        />
-                      ))}
-                    </Bar>
-                    {showIncome && (
-                      <Bar
-                        dataKey="income"
-                        fill="var(--color-brand-text-secondary)"
-                        fillOpacity={0.6}
-                        radius={[4, 4, 0, 0]}
-                      />
-                    )}
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </>
-          )}
-
-          {chartMode === "category" && (
-            <>
-              <h3 className="mb-4 font-semibold text-brand-text">
-                Spending by category
-              </h3>
-              {categories.length === 0 ? (
-                <p className="text-sm text-brand-text-secondary">
-                  No transactions in this period.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {categories.map((c) => (
-                    <div
-                      key={c.category}
-                      className="flex items-center justify-between border-b border-brand-border-subtle pb-3 last:border-0"
-                    >
-                      <span className="flex items-center gap-2 text-sm text-brand-text">
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: getTransactionCategoryColor(c.category) }}
-                        />
-                        {getTransactionCategoryLabel(c.category)}
-                      </span>
-                      <span className="text-sm font-semibold text-brand-text">
-                        {formatMoney(c.total)}
-                      </span>
-                    </div>
                   ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {chartMode === "avg" && (
-            <>
-              <h3 className="mb-4 font-semibold text-brand-text">
-                Average spend per day
-              </h3>
-              <p className="text-3xl font-bold text-brand-text">
-                {formatMoney(spent / days)}
-              </p>
-              <p className="mt-1 text-xs text-brand-text-secondary">
-                Over the last {Math.round(days)} days
-              </p>
-            </>
+                </Bar>
+                {showIncome && (
+                  <Bar
+                    dataKey="income"
+                    fill="var(--color-brand-text-secondary)"
+                    fillOpacity={0.6}
+                    radius={[4, 4, 0, 0]}
+                  />
+                )}
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </div>
 
-        {/* recent transactions */}
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-brand-text">
-              Recent transactions
-            </h3>
-            <Link
-              to="/transactions"
-              className="text-sm text-brand-green hover:text-brand-green-hover"
-            >
-              View all
-            </Link>
-          </div>
-
-          {list.isLoading && (
-            <p className="text-sm text-brand-text-secondary">Loading…</p>
-          )}
-
-          <div className="flex flex-col">
-            {list.data?.transactions.map((t) => {
-              const label = t.merchantName ?? t.name;
-              const amount = Number(t.amount);
-              const isIncome = amount < 0;
-              return (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between border-t border-brand-border-subtle py-3 first:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-surface-raised text-sm font-medium text-brand-text-secondary">
-                      {label.charAt(0).toUpperCase()}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-brand-text">
-                        {label}
-                      </p>
-                      <p className="text-xs text-brand-text-secondary">
-                        {getTransactionCategoryLabel(getEffectiveCategory(t))}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-error"}`}
-                  >
-                    {isIncome ? "+" : "-"}
-                    {formatMoney(Math.abs(amount))}
+          <h3 className="mb-4 font-semibold text-brand-text">
+            Spending by category
+          </h3>
+          {donutData.length === 0 ? (
+            <p className="py-16 text-center text-sm text-brand-text-secondary">
+              No spending in this period.
+            </p>
+          ) : (
+            <div className="flex items-center gap-5">
+              <div className="relative h-40 w-40 shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={donutData}
+                      dataKey="value"
+                      nameKey="label"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={54}
+                      outerRadius={72}
+                      paddingAngle={2}
+                      stroke="none"
+                    >
+                      {donutData.map((d) => (
+                        <Cell key={d.key} fill={d.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<DonutTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-lg font-bold text-brand-text">
+                    {formatMoney(spent)}
+                  </span>
+                  <span className="text-[10px] tracking-wide text-brand-text-secondary uppercase">
+                    total spent
                   </span>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+              <div className="flex flex-1 flex-col gap-2">
+                {donutData.map((d) => (
+                  <div
+                    key={d.key}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-brand-text">
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-sm"
+                        style={{ backgroundColor: d.color }}
+                      />
+                      <span className="truncate">{d.label}</span>
+                    </span>
+                    <span className="shrink-0 text-brand-text-secondary">
+                      {spent > 0 ? Math.round((d.value / spent) * 100) : 0}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* recent transactions */}
+      <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-semibold text-brand-text">Recent transactions</h3>
+          <Link
+            to="/transactions"
+            className="text-sm text-brand-green hover:text-brand-green-hover"
+          >
+            View all
+          </Link>
+        </div>
+
+        {list.isLoading && (
+          <p className="text-sm text-brand-text-secondary">Loading…</p>
+        )}
+
+        <div className="flex flex-col">
+          {list.data?.transactions.map((t) => {
+            const label = t.merchantName ?? t.name;
+            const amount = Number(t.amount);
+            const isIncome = amount < 0;
+            return (
+              <div
+                key={t.id}
+                className="flex items-center justify-between border-t border-brand-border-subtle py-3 first:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-surface-raised text-sm font-medium text-brand-text-secondary">
+                    {label.charAt(0).toUpperCase()}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-brand-text">{label}</p>
+                    <p className="text-xs text-brand-text-secondary">
+                      {getTransactionCategoryLabel(getEffectiveCategory(t))}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-error"}`}
+                >
+                  {isIncome ? "+" : "-"}
+                  {formatMoney(Math.abs(amount))}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

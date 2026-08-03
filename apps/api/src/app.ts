@@ -2,6 +2,10 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import passport from "passport";
+// Side-effect import: registers the Google OAuth strategy via passport.use()
+// so `passport.authenticate("google")` resolves. Without this the strategy is
+// never registered ("Unknown authentication strategy 'google'").
+import "./features/auth/auth.googleStrategy";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFound } from "./middleware/notFound";
 import { apiLimiter } from "./middleware/rateLimit";

@@ -6,6 +6,9 @@ export type RecurringFrequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "ANNUALLY";
 
 export type TransactionSource = "PLAID" | "MANUAL";
 
+// How the user signed up / authenticates.
+export type AuthProvider = "google" | "password";
+
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
 export interface User {
@@ -20,6 +23,10 @@ export interface User {
   // Whether the user has confirmed their email. Drives the "verify your email"
   // banner and gates bank connections.
   emailVerified: boolean;
+  // How the account signs in — "google" (OAuth, no password) or "password".
+  // Drives the Settings "Signed in with Google" badge and the change-password
+  // form.
+  provider: AuthProvider;
 }
 
 export interface PlaidItem {
