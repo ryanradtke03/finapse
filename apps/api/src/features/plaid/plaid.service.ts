@@ -7,6 +7,7 @@ import {
 import { prisma } from "../../db/prisma";
 import { decrypt, encrypt } from "../../lib/encryption";
 import { plaidClient } from "../../lib/plaidClient";
+import { invalidateRecurringCache } from "../transaction/transaction.service";
 
 // ─────────────────────────────────────────
 // createLinkToken — new bank connection
@@ -518,6 +519,11 @@ export async function syncTransactions(userId: string, plaidItemId: string) {
     modified: modified.length,
     removed: removedIds.length,
   });
+
+  // Transactions changed, so the cached heuristic recurring set is now stale
+  // (see getRecurringTransactionIds / FIN-94). Drop it so the next read
+  // recomputes.
+  invalidateRecurringCache(userId);
 
   return {
     added: added.length,
