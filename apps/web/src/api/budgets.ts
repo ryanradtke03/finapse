@@ -7,13 +7,30 @@ export interface Budget {
   periodStart: string;
 }
 
-export const getBudgets = async (): Promise<Budget[]> => {
-  const res = await fetch(`${apiBaseUrl}/budget`, {
+export const getBudgets = async (periodStart?: string): Promise<Budget[]> => {
+  const query = periodStart
+    ? `?periodStart=${encodeURIComponent(periodStart)}`
+    : "";
+  const res = await fetch(`${apiBaseUrl}/budget${query}`, {
     method: "GET",
     credentials: "include",
   });
   if (!res.ok) throw await res.json();
   return res.json(); // listBudgetHandler returns the array directly
+};
+
+export const copyBudgets = async (
+  from: string,
+  to: string,
+): Promise<{ copied: number }> => {
+  const res = await fetch(`${apiBaseUrl}/budget/copy`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ from, to }),
+  });
+  if (!res.ok) throw await res.json();
+  return res.json();
 };
 
 export const getBudget = async (id: string): Promise<Budget> => {

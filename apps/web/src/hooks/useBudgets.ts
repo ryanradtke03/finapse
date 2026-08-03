@@ -4,6 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  copyBudgets,
   createBudget,
   deleteBudget,
   getBudget,
@@ -12,10 +13,11 @@ import {
   type BudgetInput,
 } from "../api/budgets";
 
-export function useBudgets() {
+// periodStart (YYYY-MM-01) scopes to a single month; omit for all budgets.
+export function useBudgets(periodStart?: string) {
   return useQuery({
-    queryKey: ["budgets"],
-    queryFn: getBudgets,
+    queryKey: ["budgets", periodStart ?? null],
+    queryFn: () => getBudgets(periodStart),
     placeholderData: (prev) => prev,
   });
 }
@@ -59,6 +61,15 @@ export function useDeleteBudget() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteBudget(id),
+    onSuccess: () => invalidateBudgetQueries(queryClient),
+  });
+}
+
+export function useCopyBudgets() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ from, to }: { from: string; to: string }) =>
+      copyBudgets(from, to),
     onSuccess: () => invalidateBudgetQueries(queryClient),
   });
 }
