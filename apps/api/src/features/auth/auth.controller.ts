@@ -4,6 +4,7 @@ import passport from "passport";
 import { z } from "zod";
 import { clearAuthCookie, setAuthCookie } from "./auth.cookies";
 import {
+  authProviderFor,
   changeUserPassword,
   deleteUserAccount,
   getUserProfile,
@@ -70,6 +71,7 @@ export async function register(
         createdAt: user.createdAt,
         hasPassword: user.passwordHash !== "",
         emailVerified: user.emailVerified,
+        provider: authProviderFor(user.passwordHash),
       },
     });
   } catch (err) {

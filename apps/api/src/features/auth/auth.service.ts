@@ -159,10 +159,18 @@ type PublicUser = {
   fullName: string;
   hasPassword: boolean;
   emailVerified: boolean;
+  provider: "google" | "password";
 };
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+// Google sign-ups are created with an empty passwordHash (see
+// auth.googleStrategy.ts), so the sign-in provider is derivable — no separate
+// column needed.
+export function authProviderFor(passwordHash: string): "google" | "password" {
+  return passwordHash === "" ? "google" : "password";
 }
 
 export async function loginUser(input: LoginInput): Promise<{
@@ -219,6 +227,7 @@ export async function loginUser(input: LoginInput): Promise<{
       fullName: user.fullName,
       hasPassword: user.passwordHash !== "",
       emailVerified: user.emailVerified,
+      provider: authProviderFor(user.passwordHash),
     },
     cookie: {
       name: "token",
@@ -260,6 +269,7 @@ export async function getUserProfile(userId: string) {
     createdAt: user.createdAt.toISOString(),
     hasPassword: user.passwordHash !== "",
     emailVerified: user.emailVerified,
+    provider: authProviderFor(user.passwordHash),
   };
 }
 
