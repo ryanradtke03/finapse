@@ -76,6 +76,24 @@ export async function syncTransactionsHandler(
   }
 }
 
+// Force a full re-sync of an item's history to repopulate fields that were
+// added after the transactions were first synced (FIN-95, FIN-98). Re-fetches
+// everything from Plaid, so it's a deliberate, user-initiated action.
+export async function backfillTransactionsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const { itemId } = req.params;
+    const result = await syncTransactions(userId, itemId, { fullResync: true });
+    return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
 export async function getItems(
   req: Request,
   res: Response,

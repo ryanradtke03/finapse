@@ -309,8 +309,19 @@ export async function exchangePublicToken({
 // cursor = string → delta only (subsequent syncs)
 // ─────────────────────────────────────────
 
-export async function syncTransactions(userId: string, plaidItemId: string) {
-  console.log("[sync] start", { userId, plaidItemId });
+// `fullResync` ignores the stored transactionCursor and re-fetches this
+// item's entire history, re-upserting every transaction. Plaid's incremental
+// sync (cursor-based) only re-sends new/changed rows, so columns added after
+// a transaction was first synced (personalFinanceCategoryDetail, paymentChannel,
+// merchantEntityId, location) stay null on old rows forever — a full resync is
+// the backfill (FIN-95, FIN-98). The final cursor is still saved at the end, so
+// subsequent normal syncs resume incrementally.
+export async function syncTransactions(
+  userId: string,
+  plaidItemId: string,
+  options: { fullResync?: boolean } = {},
+) {
+  console.log("[sync] start", { userId, plaidItemId, fullResync: !!options.fullResync });
 
   const item = await prisma.plaidItem.findFirst({
     where: { id: plaidItemId, userId },
@@ -338,7 +349,7 @@ export async function syncTransactions(userId: string, plaidItemId: string) {
   const accessToken = decrypt(item.accessToken);
   console.log("[sync] token decrypted ok");
 
-  let cursor = item.transactionCursor ?? undefined;
+  let cursor = options.fullResync ? undefined : (item.transactionCursor ?? undefined);
   let added: PlaidTransaction[] = [];
   let modified: PlaidTransaction[] = [];
   let removedIds: string[] = [];

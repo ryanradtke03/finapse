@@ -1,10 +1,16 @@
 import type { Account, PlaidItem } from "@finapse/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { deleteAccount, deleteItem, syncTransactions } from "../api/plaid";
+import {
+  backfillTransactions,
+  deleteAccount,
+  deleteItem,
+  syncTransactions,
+} from "../api/plaid";
 import { ConnectBankButton } from "../components/ConnectBankButton";
 import { Avatar } from "../components/ui/Avatar";
 import { useItems } from "../hooks/useItems";
+import { invalidateTransactionQueries } from "../hooks/useTransactions";
 import logger from "../utils/logger";
 
 function PlusIcon() {
@@ -20,6 +26,15 @@ function SyncIcon() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-green">
       <path d="M13.5 8A5.5 5.5 0 013 10.5M2.5 8A5.5 5.5 0 0113 5.5" />
       <path d="M13 3v3h-3M3 13v-3h3" />
+    </svg>
+  );
+}
+
+function BackfillIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-text-secondary">
+      <path d="M8 1v8m0 0L5 6m3 3l3-3" />
+      <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" />
     </svg>
   );
 }
@@ -74,11 +89,15 @@ export default function Accounts() {
   const q = useItems();
   const queryClient = useQueryClient();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"sync" | "backfill" | null>(
+    null,
+  );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["items"] });
 
   const handleSync = async (item: PlaidItem) => {
     setPendingId(item.id);
+    setPendingAction("sync");
     try {
       await syncTransactions(item.id);
       await invalidate();
@@ -86,6 +105,27 @@ export default function Accounts() {
       logger.error("Sync failed", { err: String(err) });
     } finally {
       setPendingId(null);
+      setPendingAction(null);
+    }
+  };
+
+  const handleBackfill = async (item: PlaidItem) => {
+    const ok = confirm(
+      `Backfill ${item.institutionName ?? "this bank"}? This re-fetches its full transaction history from Plaid to repopulate newer fields (detailed category, payment channel, merchant, location) on older transactions.`,
+    );
+    if (!ok) return;
+
+    setPendingId(item.id);
+    setPendingAction("backfill");
+    try {
+      await backfillTransactions(item.id);
+      await invalidate();
+      invalidateTransactionQueries(queryClient);
+    } catch (err) {
+      logger.error("Backfill failed", { err: String(err) });
+    } finally {
+      setPendingId(null);
+      setPendingAction(null);
     }
   };
 
@@ -185,7 +225,21 @@ export default function Accounts() {
                       className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-brand-border-subtle bg-brand-surface-raised px-3 py-1.5 text-sm font-medium text-brand-text transition-colors duration-200 hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <SyncIcon />
-                      {pendingId === item.id ? "Syncing…" : "Sync now"}
+                      {pendingId === item.id && pendingAction === "sync"
+                        ? "Syncing…"
+                        : "Sync now"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBackfill(item)}
+                      disabled={pendingId === item.id}
+                      title="Re-fetch full history to repopulate newer fields on old transactions"
+                      className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-brand-border-subtle bg-brand-surface-raised px-3 py-1.5 text-sm font-medium text-brand-text transition-colors duration-200 hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <BackfillIcon />
+                      {pendingId === item.id && pendingAction === "backfill"
+                        ? "Backfilling…"
+                        : "Backfill"}
                     </button>
                     <button
                       type="button"
