@@ -200,6 +200,14 @@ export function getTransactionCategoryLabel(value: string): string {
   const known = DETAILED_LABELS[value];
   if (known) return known;
 
+  // Fully custom, user-defined categories (FIN-90) are stored canonically as
+  // CUSTOM_<UPPER_SNAKE> so a budget and a recategorized transaction always
+  // match regardless of how the user typed them. Strip the prefix and
+  // humanize so "CUSTOM_KIDS" renders as "Kids".
+  if (value.startsWith(`${CUSTOM_PREFIX}_`)) {
+    return humanizeWords(value.slice(CUSTOM_PREFIX.length + 1));
+  }
+
   const prefix = PRIMARY_PREFIXES.find((p) => value.startsWith(`${p}_`));
   if (prefix) {
     const remainder = value.slice(prefix.length + 1);
@@ -233,6 +241,34 @@ function hashString(value: string): number {
 
 export function getTransactionCategoryColor(value: string): string {
   return DOT_PALETTE[hashString(value) % DOT_PALETTE.length];
+}
+
+// Sentinel prefix for fully custom, user-defined categories (FIN-90) that
+// aren't in Plaid's taxonomy at all (e.g. "Kids", "Pets"). Stored on
+// Budget.category and Transaction.userCategory in a canonical form so a
+// budget line and the transactions assigned to it always match exactly.
+export const CUSTOM_PREFIX = "CUSTOM";
+
+// Canonicalize free-text custom-category input to CUSTOM_<UPPER_SNAKE>.
+// Case- and whitespace-insensitive so "Kids", "kids" and " KIDS " all collapse
+// to CUSTOM_KIDS — the value stored is what buildDetailedCategoryWhere matches
+// on (userCategory === value), so this is what guarantees a budget and the
+// transactions filed under it line up. Returns "" for empty/garbage input so
+// callers can treat it as "no category".
+export function normalizeCustomCategory(input: string): string {
+  const slug = input
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return slug ? `${CUSTOM_PREFIX}_${slug}` : "";
+}
+
+// True for values produced by normalizeCustomCategory — i.e. user-defined
+// categories, not Plaid taxonomy values or the SUBSCRIPTION/UNCATEGORIZED
+// sentinels. Used to surface a user's existing custom categories in pickers.
+export function isCustomCategory(value: string): boolean {
+  return value.startsWith(`${CUSTOM_PREFIX}_`);
 }
 
 // Effective category for a transaction: an explicit user override always

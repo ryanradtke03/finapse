@@ -11,8 +11,12 @@ import {
 import {
   getTransactionCategoryColor,
   getTransactionCategoryLabel,
+  isCustomCategory,
 } from "../lib/transactionCategories";
-import { useTransactionSummary } from "../hooks/useTransactions";
+import {
+  useTransactionCategories,
+  useTransactionSummary,
+} from "../hooks/useTransactions";
 import logger from "../utils/logger";
 
 function PlusIcon() {
@@ -95,6 +99,19 @@ export default function Budgets() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
   const [copyError, setCopyError] = useState("");
+
+  // Custom categories the user has already created (on transactions or on
+  // this month's budgets), surfaced in the picker for reuse so "Kids" doesn't
+  // have to be retyped every month.
+  const categoriesQuery = useTransactionCategories();
+  const customCategories = Array.from(
+    new Set(
+      [
+        ...(categoriesQuery.data ?? []),
+        ...(budgetsQuery.data ?? []).map((b) => b.category),
+      ].filter(isCustomCategory),
+    ),
+  ).map((value) => ({ value, label: getTransactionCategoryLabel(value) }));
 
   // byCategory rows are keyed by detailed category. A budget stored at the
   // primary level (e.g. old budgets created before this was detailed, or
@@ -346,6 +363,7 @@ export default function Budgets() {
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
         initial={editing}
+        customCategories={customCategories}
       />
     </div>
   );
