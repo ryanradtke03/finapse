@@ -13,6 +13,11 @@ import { invalidateRecurringCache } from "../transaction/transaction.service";
 // createLinkToken — new bank connection
 // ─────────────────────────────────────────
 
+// Public URL Plaid should POST webhooks to (FIN-106). Only set when configured
+// — in local dev without a tunnel it's absent and Plaid simply won't send
+// webhooks (manual "Sync now" still works).
+const webhookUrl = process.env.PLAID_WEBHOOK_URL;
+
 export async function createLinkToken(userId: string, institutionId?: string) {
   if (institutionId) {
     const item = await prisma.plaidItem.findFirst({
@@ -30,6 +35,7 @@ export async function createLinkToken(userId: string, institutionId?: string) {
       update: { account_selection_enabled: true },
       language: "en",
       country_codes: [CountryCode.Us],
+      ...(webhookUrl && { webhook: webhookUrl }),
     });
 
     return {
@@ -45,6 +51,7 @@ export async function createLinkToken(userId: string, institutionId?: string) {
     products: [Products.Transactions],
     language: "en",
     country_codes: [CountryCode.Us],
+    ...(webhookUrl && { webhook: webhookUrl }),
   });
 
   return { link_token: data.link_token, mode: "new" as const };
@@ -541,6 +548,24 @@ export async function syncTransactions(
     modified: modified.length,
     removed: removedIds.length,
   };
+}
+
+// Resolve our internal PlaidItem (id + owner) from Plaid's own item_id, which
+// is what webhooks are keyed by. Returns null if we don't have that item.
+export async function findItemByPlaidItemId(plaidItemId: string) {
+  return prisma.plaidItem.findUnique({
+    where: { itemId: plaidItemId },
+    select: { id: true, userId: true },
+  });
+}
+
+// Flag an item as needing reconnection (e.g. Plaid's ITEM_LOGIN_REQUIRED
+// webhook). The Accounts page surfaces this via formatLastSynced.
+export async function markItemNeedsReauth(itemId: string): Promise<void> {
+  await prisma.plaidItem.update({
+    where: { id: itemId },
+    data: { status: "NEEDS_REAUTH" },
+  });
 }
 
 function mapTransaction(t: PlaidTransaction, accountId: string) {

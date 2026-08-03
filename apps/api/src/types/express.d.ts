@@ -8,6 +8,9 @@ declare global {
         email: string;
         fullName?: string;
       };
+      // Raw request body bytes, captured by express.json's verify hook — used
+      // to verify Plaid webhook signatures (see plaid.webhook.ts).
+      rawBody?: Buffer;
     }
   }
 }
@@ -21,5 +24,6 @@ declare module "express-serve-static-core" {
       email: string;
       fullName?: string;
     };
+    rawBody?: Buffer;
   }
 }
