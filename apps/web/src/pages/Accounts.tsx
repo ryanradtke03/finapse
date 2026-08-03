@@ -1,10 +1,16 @@
 import type { Account, PlaidItem } from "@finapse/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { deleteAccount, deleteItem, syncTransactions } from "../api/plaid";
+import {
+  backfillTransactions,
+  deleteAccount,
+  deleteItem,
+  syncTransactions,
+} from "../api/plaid";
 import { ConnectBankButton } from "../components/ConnectBankButton";
 import { Avatar } from "../components/ui/Avatar";
 import { useItems } from "../hooks/useItems";
+import { invalidateTransactionQueries } from "../hooks/useTransactions";
 import logger from "../utils/logger";
 
 function PlusIcon() {
@@ -20,6 +26,15 @@ function SyncIcon() {
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-green">
       <path d="M13.5 8A5.5 5.5 0 013 10.5M2.5 8A5.5 5.5 0 0113 5.5" />
       <path d="M13 3v3h-3M3 13v-3h3" />
+    </svg>
+  );
+}
+
+function BackfillIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-text-secondary">
+      <path d="M8 1v8m0 0L5 6m3 3l3-3" />
+      <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" />
     </svg>
   );
 }
@@ -50,7 +65,7 @@ function XIcon() {
 }
 
 function formatLastSynced(item: PlaidItem): string {
-  if (item.status === "NEEDS_REAUTH") return "Needs reconnection";
+  if (item.status === "NEEDS_REAUTH") return "Reconnect to resume syncing";
   if (item.status === "DISCONNECTED") return "Disconnected";
 
   const minutes = Math.round((Date.now() - new Date(item.updatedAt).getTime()) / 60000);
@@ -74,11 +89,15 @@ export default function Accounts() {
   const q = useItems();
   const queryClient = useQueryClient();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"sync" | "backfill" | null>(
+    null,
+  );
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["items"] });
 
   const handleSync = async (item: PlaidItem) => {
     setPendingId(item.id);
+    setPendingAction("sync");
     try {
       await syncTransactions(item.id);
       await invalidate();
@@ -86,7 +105,36 @@ export default function Accounts() {
       logger.error("Sync failed", { err: String(err) });
     } finally {
       setPendingId(null);
+      setPendingAction(null);
     }
+  };
+
+  const handleBackfill = async (item: PlaidItem) => {
+    const ok = confirm(
+      `Backfill ${item.institutionName ?? "this bank"}? This re-fetches its full transaction history from Plaid to repopulate newer fields (detailed category, payment channel, merchant, location) on older transactions.`,
+    );
+    if (!ok) return;
+
+    setPendingId(item.id);
+    setPendingAction("backfill");
+    try {
+      await backfillTransactions(item.id);
+      await invalidate();
+      invalidateTransactionQueries(queryClient);
+    } catch (err) {
+      logger.error("Backfill failed", { err: String(err) });
+    } finally {
+      setPendingId(null);
+      setPendingAction(null);
+    }
+  };
+
+  // After a successful update-mode relink (ConnectBankButton re-syncs, which
+  // flips the item back to ACTIVE server-side), refresh the item list and the
+  // transaction views so the badge clears and any newly-synced data shows.
+  const afterReconnect = () => {
+    invalidate();
+    invalidateTransactionQueries(queryClient);
   };
 
   const handleRemoveBank = async (item: PlaidItem) => {
@@ -169,24 +217,71 @@ export default function Accounts() {
                       size="md"
                     />
                     <div>
-                      <h3 className="font-semibold text-brand-text">
-                        {item.institutionName ?? "Unknown institution"}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-brand-text">
+                          {item.institutionName ?? "Unknown institution"}
+                        </h3>
+                        {item.status === "NEEDS_REAUTH" && (
+                          <span className="rounded-full border border-brand-error-border bg-brand-error-bg px-2 py-0.5 text-xs font-medium text-brand-error">
+                            Needs reconnection
+                          </span>
+                        )}
+                        {item.status === "DISCONNECTED" && (
+                          <span className="rounded-full bg-brand-surface-raised px-2 py-0.5 text-xs font-medium text-brand-text-secondary">
+                            Disconnected
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-brand-text-secondary">
                         {formatLastSynced(item)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleSync(item)}
-                      disabled={pendingId === item.id}
-                      className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-brand-border-subtle bg-brand-surface-raised px-3 py-1.5 text-sm font-medium text-brand-text transition-colors duration-200 hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <SyncIcon />
-                      {pendingId === item.id ? "Syncing…" : "Sync now"}
-                    </button>
+                    {item.status === "NEEDS_REAUTH" ? (
+                      // A broken connection can't sync/backfill until it's
+                      // re-authenticated, so offer only Reconnect (Plaid Link
+                      // update mode) here. institutionId drives update mode; if
+                      // it's somehow missing we fall back to nothing rather than
+                      // launching a brand-new connection.
+                      item.institutionId && (
+                        <ConnectBankButton
+                          institutionId={item.institutionId}
+                          onSuccess={afterReconnect}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <SyncIcon />
+                            Reconnect
+                          </span>
+                        </ConnectBankButton>
+                      )
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSync(item)}
+                          disabled={pendingId === item.id}
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-brand-border-subtle bg-brand-surface-raised px-3 py-1.5 text-sm font-medium text-brand-text transition-colors duration-200 hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <SyncIcon />
+                          {pendingId === item.id && pendingAction === "sync"
+                            ? "Syncing…"
+                            : "Sync now"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBackfill(item)}
+                          disabled={pendingId === item.id}
+                          title="Re-fetch full history to repopulate newer fields on old transactions"
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-brand-border-subtle bg-brand-surface-raised px-3 py-1.5 text-sm font-medium text-brand-text transition-colors duration-200 hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <BackfillIcon />
+                          {pendingId === item.id && pendingAction === "backfill"
+                            ? "Backfilling…"
+                            : "Backfill"}
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleRemoveBank(item)}

@@ -43,7 +43,17 @@ export function createApp() {
     }),
   );
 
-  app.use(express.json());
+  // Stash the raw body bytes alongside the parsed JSON. Plaid signs each
+  // webhook with a JWT whose payload includes a SHA-256 of the exact request
+  // body, so verifying it (see plaid.webhook.ts) needs the original bytes, not
+  // the re-serialized parsed object.
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        (req as express.Request).rawBody = buf;
+      },
+    }),
+  );
   app.use(cookieParser());
   app.use(passport.initialize());
 

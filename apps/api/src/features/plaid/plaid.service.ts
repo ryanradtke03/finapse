@@ -13,6 +13,11 @@ import { invalidateRecurringCache } from "../transaction/transaction.service";
 // createLinkToken — new bank connection
 // ─────────────────────────────────────────
 
+// Public URL Plaid should POST webhooks to (FIN-106). Only set when configured
+// — in local dev without a tunnel it's absent and Plaid simply won't send
+// webhooks (manual "Sync now" still works).
+const webhookUrl = process.env.PLAID_WEBHOOK_URL;
+
 export async function createLinkToken(userId: string, institutionId?: string) {
   if (institutionId) {
     const item = await prisma.plaidItem.findFirst({
@@ -30,6 +35,7 @@ export async function createLinkToken(userId: string, institutionId?: string) {
       update: { account_selection_enabled: true },
       language: "en",
       country_codes: [CountryCode.Us],
+      ...(webhookUrl && { webhook: webhookUrl }),
     });
 
     return {
@@ -45,6 +51,7 @@ export async function createLinkToken(userId: string, institutionId?: string) {
     products: [Products.Transactions],
     language: "en",
     country_codes: [CountryCode.Us],
+    ...(webhookUrl && { webhook: webhookUrl }),
   });
 
   return { link_token: data.link_token, mode: "new" as const };
@@ -309,8 +316,19 @@ export async function exchangePublicToken({
 // cursor = string → delta only (subsequent syncs)
 // ─────────────────────────────────────────
 
-export async function syncTransactions(userId: string, plaidItemId: string) {
-  console.log("[sync] start", { userId, plaidItemId });
+// `fullResync` ignores the stored transactionCursor and re-fetches this
+// item's entire history, re-upserting every transaction. Plaid's incremental
+// sync (cursor-based) only re-sends new/changed rows, so columns added after
+// a transaction was first synced (personalFinanceCategoryDetail, paymentChannel,
+// merchantEntityId, location) stay null on old rows forever — a full resync is
+// the backfill (FIN-95, FIN-98). The final cursor is still saved at the end, so
+// subsequent normal syncs resume incrementally.
+export async function syncTransactions(
+  userId: string,
+  plaidItemId: string,
+  options: { fullResync?: boolean } = {},
+) {
+  console.log("[sync] start", { userId, plaidItemId, fullResync: !!options.fullResync });
 
   const item = await prisma.plaidItem.findFirst({
     where: { id: plaidItemId, userId },
@@ -338,7 +356,7 @@ export async function syncTransactions(userId: string, plaidItemId: string) {
   const accessToken = decrypt(item.accessToken);
   console.log("[sync] token decrypted ok");
 
-  let cursor = item.transactionCursor ?? undefined;
+  let cursor = options.fullResync ? undefined : (item.transactionCursor ?? undefined);
   let added: PlaidTransaction[] = [];
   let modified: PlaidTransaction[] = [];
   let removedIds: string[] = [];
@@ -505,11 +523,15 @@ export async function syncTransactions(userId: string, plaidItemId: string) {
     }
     console.log("[sync] step 4 done");
 
-    // 5. Save cursor
+    // 5. Save cursor + mark the item healthy. A successful sync proves the
+    // connection works, so clear any NEEDS_REAUTH set by the ITEM_LOGIN_REQUIRED
+    // webhook (FIN-111) — this is what makes the Reconnect flow's post-relink
+    // sync flip the item back to ACTIVE. Safe to set unconditionally: a
+    // DISCONNECTED item never reaches here (guarded at the top).
     console.log("[sync] step 5 — saving cursor", cursor);
     await tx.plaidItem.update({
       where: { id: item.id },
-      data: { transactionCursor: cursor },
+      data: { transactionCursor: cursor, status: "ACTIVE" },
     });
     console.log("[sync] step 5 done");
   });
@@ -530,6 +552,24 @@ export async function syncTransactions(userId: string, plaidItemId: string) {
     modified: modified.length,
     removed: removedIds.length,
   };
+}
+
+// Resolve our internal PlaidItem (id + owner) from Plaid's own item_id, which
+// is what webhooks are keyed by. Returns null if we don't have that item.
+export async function findItemByPlaidItemId(plaidItemId: string) {
+  return prisma.plaidItem.findUnique({
+    where: { itemId: plaidItemId },
+    select: { id: true, userId: true },
+  });
+}
+
+// Flag an item as needing reconnection (e.g. Plaid's ITEM_LOGIN_REQUIRED
+// webhook). The Accounts page surfaces this via formatLastSynced.
+export async function markItemNeedsReauth(itemId: string): Promise<void> {
+  await prisma.plaidItem.update({
+    where: { id: itemId },
+    data: { status: "NEEDS_REAUTH" },
+  });
 }
 
 function mapTransaction(t: PlaidTransaction, accountId: string) {

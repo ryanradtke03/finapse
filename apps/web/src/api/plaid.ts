@@ -59,6 +59,24 @@ export const syncTransactions = async (
   return res.json();
 };
 
+// Force a full re-sync to backfill fields on transactions synced before those
+// columns existed (FIN-95, FIN-98). Same response shape as syncTransactions.
+export const backfillTransactions = async (
+  itemId: string,
+): Promise<{ added: number; modified: number; removed: number }> => {
+  const res = await fetch(`${apiBaseUrl}/plaid/backfill/${itemId}`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw error;
+  }
+
+  return res.json();
+};
+
 export const getItems = async (): Promise<PlaidItem[]> => {
   const res = await fetch(`${apiBaseUrl}/plaid/item`, {
     method: 'GET',

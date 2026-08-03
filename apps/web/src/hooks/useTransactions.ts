@@ -68,7 +68,9 @@ export function useTransactionCategories() {
 
 // Shared invalidation after any transaction write: refresh the list, the
 // selected row, the category filter set, and Dashboard/Budgets summaries.
-function invalidateTransactionQueries(
+// Exported so the Accounts backfill (which rewrites transaction rows) can
+// refresh these views too.
+export function invalidateTransactionQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   id?: string,
 ) {
