@@ -523,11 +523,15 @@ export async function syncTransactions(
     }
     console.log("[sync] step 4 done");
 
-    // 5. Save cursor
+    // 5. Save cursor + mark the item healthy. A successful sync proves the
+    // connection works, so clear any NEEDS_REAUTH set by the ITEM_LOGIN_REQUIRED
+    // webhook (FIN-111) — this is what makes the Reconnect flow's post-relink
+    // sync flip the item back to ACTIVE. Safe to set unconditionally: a
+    // DISCONNECTED item never reaches here (guarded at the top).
     console.log("[sync] step 5 — saving cursor", cursor);
     await tx.plaidItem.update({
       where: { id: item.id },
-      data: { transactionCursor: cursor },
+      data: { transactionCursor: cursor, status: "ACTIVE" },
     });
     console.log("[sync] step 5 done");
   });
