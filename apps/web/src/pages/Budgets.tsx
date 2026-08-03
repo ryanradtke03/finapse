@@ -3,6 +3,7 @@ import type { Budget } from "../api/budgets";
 import { BudgetModal } from "../components/BudgetModal";
 import {
   useBudgets,
+  useCopyBudgets,
   useCreateBudget,
   useDeleteBudget,
   useUpdateBudget,
@@ -10,8 +11,12 @@ import {
 import {
   getTransactionCategoryColor,
   getTransactionCategoryLabel,
+  isCustomCategory,
 } from "../lib/transactionCategories";
-import { useTransactionSummary } from "../hooks/useTransactions";
+import {
+  useTransactionCategories,
+  useTransactionSummary,
+} from "../hooks/useTransactions";
 import logger from "../utils/logger";
 
 function PlusIcon() {
@@ -38,17 +43,31 @@ function TrashIcon() {
   );
 }
 
-function firstOfMonthISO(): string {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+function ChevronIcon({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={dir === "left" ? "M10 3L5 8l5 5" : "M6 3l5 5-5 5"} />
+    </svg>
+  );
 }
 
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+// First of a month as YYYY-MM-01 (matches how budgets store periodStart).
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-function monthLabel(): string {
-  return new Date().toLocaleString("en-US", { month: "long" }).toUpperCase();
+// Last day of a month as YYYY-MM-DD (for the spend-summary end date).
+function monthEndKey(d: Date): string {
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
+}
+
+function monthLabelOf(d: Date): string {
+  return d.toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+function addMonths(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }
 
 // <80% green, 80-100% amber, >100% red (over budget)
@@ -59,17 +78,40 @@ function usageColor(percent: number): { bar: string; text: string } {
 }
 
 export default function Budgets() {
-  const budgetsQuery = useBudgets();
+  // Which month is being viewed (first of the month). Budgets and spend are
+  // scoped to it; the ◀ ▶ nav moves between months.
+  const [selectedMonth, setSelectedMonth] = useState(() =>
+    addMonths(new Date(), 0),
+  );
+  const periodStart = monthKey(selectedMonth);
+  const prevMonth = addMonths(selectedMonth, -1);
+
+  const budgetsQuery = useBudgets(periodStart);
   const summaryQuery = useTransactionSummary({
-    startDate: firstOfMonthISO(),
-    endDate: todayISO(),
+    startDate: periodStart,
+    endDate: monthEndKey(selectedMonth),
   });
   const createMutation = useCreateBudget();
   const updateMutation = useUpdateBudget();
   const deleteMutation = useDeleteBudget();
+  const copyMutation = useCopyBudgets();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
+  const [copyError, setCopyError] = useState("");
+
+  // Custom categories the user has already created (on transactions or on
+  // this month's budgets), surfaced in the picker for reuse so "Kids" doesn't
+  // have to be retyped every month.
+  const categoriesQuery = useTransactionCategories();
+  const customCategories = Array.from(
+    new Set(
+      [
+        ...(categoriesQuery.data ?? []),
+        ...(budgetsQuery.data ?? []).map((b) => b.category),
+      ].filter(isCustomCategory),
+    ),
+  ).map((value) => ({ value, label: getTransactionCategoryLabel(value) }));
 
   // byCategory rows are keyed by detailed category. A budget stored at the
   // primary level (e.g. old budgets created before this was detailed, or
@@ -108,7 +150,7 @@ export default function Budgets() {
     if (editing) {
       await updateMutation.mutateAsync({ id: editing.id, data });
     } else {
-      await createMutation.mutateAsync({ ...data, periodStart: firstOfMonthISO() });
+      await createMutation.mutateAsync({ ...data, periodStart });
     }
   };
 
@@ -119,6 +161,22 @@ export default function Budgets() {
       await deleteMutation.mutateAsync(budget.id);
     } catch (err) {
       logger.error("Delete budget failed", { err: String(err) });
+    }
+  };
+
+  const handleCopyForward = async () => {
+    setCopyError("");
+    try {
+      const { copied } = await copyMutation.mutateAsync({
+        from: monthKey(prevMonth),
+        to: periodStart,
+      });
+      if (copied === 0) {
+        setCopyError(`No budgets in ${monthLabelOf(prevMonth)} to copy.`);
+      }
+    } catch (err) {
+      logger.error("Copy budgets failed", { err: String(err) });
+      setCopyError("Couldn't copy budgets. Try again.");
     }
   };
 
@@ -133,10 +191,32 @@ export default function Budgets() {
 
       {!budgetsQuery.isLoading && !budgetsQuery.isError && (
         <>
+          <div className="mb-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedMonth((m) => addMonths(m, -1))}
+              aria-label="Previous month"
+              className="cursor-pointer rounded-lg border border-brand-border-subtle p-1.5 text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text"
+            >
+              <ChevronIcon dir="left" />
+            </button>
+            <span className="min-w-[10rem] text-center text-lg font-semibold text-brand-text">
+              {monthLabelOf(selectedMonth)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedMonth((m) => addMonths(m, 1))}
+              aria-label="Next month"
+              className="cursor-pointer rounded-lg border border-brand-border-subtle p-1.5 text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text"
+            >
+              <ChevronIcon dir="right" />
+            </button>
+          </div>
+
           <div className="mb-6 flex items-center gap-4">
             <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
               <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
-                This month · {monthLabel()}
+                {monthLabelOf(selectedMonth)}
               </p>
               <div className="mt-2 flex items-end justify-between gap-8">
                 <div>
@@ -175,7 +255,33 @@ export default function Budgets() {
           </div>
 
           {budgets.length === 0 && (
-            <p className="text-brand-text-secondary">No budgets yet.</p>
+            <div className="rounded-xl border border-brand-border bg-brand-surface p-8 text-center">
+              <p className="text-brand-text-secondary">
+                No budgets for {monthLabelOf(selectedMonth)}.
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleCopyForward}
+                  disabled={copyMutation.isPending}
+                  className="cursor-pointer rounded-lg border border-brand-border-subtle px-4 py-2 text-sm font-medium text-brand-text transition-colors duration-200 hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {copyMutation.isPending
+                    ? "Copying…"
+                    : `Copy ${monthLabelOf(prevMonth)}'s budgets`}
+                </button>
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="cursor-pointer rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-brand-bg transition-colors duration-200 hover:bg-brand-green-hover"
+                >
+                  Create budget
+                </button>
+              </div>
+              {copyError && (
+                <p className="mt-3 text-xs text-brand-error">{copyError}</p>
+              )}
+            </div>
           )}
 
           <div className="grid grid-cols-3 gap-4">
@@ -257,6 +363,7 @@ export default function Budgets() {
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
         initial={editing}
+        customCategories={customCategories}
       />
     </div>
   );

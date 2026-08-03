@@ -8,6 +8,7 @@ import {
 import { CategoryBadge } from "../components/ui/CategoryBadge";
 import { Dropdown } from "../components/ui/Dropdown";
 import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
+import { useBudgets } from "../hooks/useBudgets";
 import { useItems } from "../hooks/useItems";
 import { useTransactionFilters } from "../hooks/useTransactionFilters";
 import { TIME_FRAME_OPTIONS, presetRange } from "../lib/dateRanges";
@@ -23,6 +24,7 @@ import {
   getEffectiveCategory,
   getTransactionCategoryColor,
   getTransactionCategoryLabel,
+  isCustomCategory,
   TRANSACTION_CATEGORY_OPTIONS,
 } from "../lib/transactionCategories";
 
@@ -84,6 +86,7 @@ export default function Transactions() {
 
   const items = useItems();
   const categoriesQuery = useTransactionCategories();
+  const budgetsQuery = useBudgets(); // all budgets, for custom-category reuse
   const updateMutation = useUpdateTransaction();
   const deleteMutation = useDeleteTransaction();
   const createMutation = useCreateTransaction();
@@ -114,6 +117,19 @@ export default function Transactions() {
     label: getTransactionCategoryLabel(value),
     color: getTransactionCategoryColor(value),
   }));
+
+  // The user's existing custom categories, surfaced in the recategorize/create
+  // pickers for reuse (FIN-90). Pulled from both transactions AND budgets, so a
+  // custom budget category ("Kids") is assignable even before any transaction
+  // has been filed under it.
+  const customCategories = Array.from(
+    new Set(
+      [
+        ...(categoriesQuery.data ?? []),
+        ...(budgetsQuery.data ?? []).map((b) => b.category),
+      ].filter(isCustomCategory),
+    ),
+  ).map((value) => ({ value, label: getTransactionCategoryLabel(value) }));
 
   const handleSave = async (patch: TransactionEditPatch) => {
     if (!selectedId) return;
@@ -266,6 +282,7 @@ export default function Transactions() {
           detail.data ? accountLookup.get(detail.data.accountId) : undefined
         }
         categoryOptions={TRANSACTION_CATEGORY_OPTIONS}
+        customCategories={customCategories}
         onClose={() => setSelectedId(undefined)}
         onSave={handleSave}
         onDelete={handleDelete}
@@ -276,6 +293,7 @@ export default function Transactions() {
         onClose={() => setCreateOpen(false)}
         accounts={accountSelectOptions}
         categoryOptions={TRANSACTION_CATEGORY_OPTIONS}
+        customCategories={customCategories}
         onSubmit={handleCreate}
       />
     </div>

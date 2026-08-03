@@ -234,11 +234,36 @@ export function computeRecurringIds(rows: RecurringCandidateRow[]): Set<string> 
   return recurringIds;
 }
 
+// FIN-94: computing the recurring set is a full-table scan, and a single
+// Transactions page load fires several independent requests (list, categories,
+// summary), each of which would otherwise re-scan from scratch. Cache the
+// result per user for a short window so those sibling requests share one scan.
+//
+// Per-request memoization wouldn't help — each of those is a separate HTTP
+// request, not one request calling the scan repeatedly — so the cache is
+// deliberately cross-request, keyed by user, with a short TTL as a staleness
+// backstop. It's invalidated explicitly whenever the underlying data changes,
+// which in practice is only a Plaid sync: manual transactions carry no
+// personalFinanceCategory (so they're never subscription-eligible) and
+// deleteTransaction only ever removes MANUAL rows, so neither can alter the
+// set. In-memory + single-instance by design; a multi-instance deploy would
+// move this to a shared cache.
+const RECURRING_CACHE_TTL_MS = 30_000;
+const recurringCache = new Map<
+  string,
+  { ids: Set<string>; expiresAt: number }
+>();
+
+export function invalidateRecurringCache(userId: string): void {
+  recurringCache.delete(userId);
+}
+
 // Thin I/O wrapper: fetch the candidate rows from the DB, convert Prisma's
 // Decimal to a plain number, hand off to the pure computeRecurringIds above.
-// It's a full-table scan per request — fine at personal-app volumes, revisit
-// if that changes (see FIN-94).
 async function getRecurringTransactionIds(userId: string): Promise<Set<string>> {
+  const cached = recurringCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.ids;
+
   const rows = await prisma.transaction.findMany({
     where: buildOwnershipWhere(userId),
     select: {
@@ -252,7 +277,14 @@ async function getRecurringTransactionIds(userId: string): Promise<Set<string>> 
     },
   });
 
-  return computeRecurringIds(rows.map((r) => ({ ...r, amount: r.amount.toNumber() })));
+  const ids = computeRecurringIds(
+    rows.map((r) => ({ ...r, amount: r.amount.toNumber() })),
+  );
+  recurringCache.set(userId, {
+    ids,
+    expiresAt: Date.now() + RECURRING_CACHE_TTL_MS,
+  });
+  return ids;
 }
 
 // Distinct effective categories across the user's transactions, for the

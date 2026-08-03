@@ -2,10 +2,8 @@ import type { Transaction } from "@finapse/types";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CategoryBadge } from "./ui/CategoryBadge";
-import {
-  getEffectiveCategory,
-  getTransactionCategoryLabel,
-} from "../lib/transactionCategories";
+import { CategorySelect, type CategoryOption } from "./ui/CategorySelect";
+import { getEffectiveCategory } from "../lib/transactionCategories";
 
 interface AccountInfo {
   institutionName: string;
@@ -26,7 +24,9 @@ interface TransactionDetailPanelProps {
   /** True while the transaction is being fetched (first open, before data arrives). */
   loading?: boolean;
   account?: AccountInfo;
-  categoryOptions: { value: string; label: string }[];
+  categoryOptions: CategoryOption[];
+  /** The user's existing custom categories, surfaced for reuse (FIN-90). */
+  customCategories?: CategoryOption[];
   onClose: () => void;
   onSave: (patch: TransactionEditPatch) => Promise<void>;
   onDelete?: () => Promise<void>;
@@ -157,6 +157,7 @@ export function TransactionDetailPanel({
   loading = false,
   account,
   categoryOptions,
+  customCategories,
   onClose,
   onSave,
   onDelete,
@@ -223,21 +224,6 @@ export function TransactionDetailPanel({
   const amount = t ? Number(t.amount) : 0;
   const isIncome = amount < 0;
   const canDelete = t?.source === "MANUAL" && !!onDelete;
-
-  // Guarantee the transaction's current category is always selectable, even
-  // if it isn't in the curated list (e.g. UNCATEGORIZED, a primary-only
-  // value, or the SUBSCRIPTION heuristic sentinel).
-  const selectableCategories = categoryOptions.some(
-    (o) => o.value === initialCategory,
-  )
-    ? categoryOptions
-    : [
-        {
-          value: initialCategory,
-          label: getTransactionCategoryLabel(initialCategory),
-        },
-        ...categoryOptions,
-      ];
 
   const startEditing = () => {
     setChoice(initialCategory);
@@ -428,17 +414,14 @@ export function TransactionDetailPanel({
                       <label className="text-xs text-brand-text-secondary">
                         Category
                       </label>
-                      <select
-                        value={choice}
-                        onChange={(e) => setChoice(e.target.value)}
-                        className="mt-1 w-full rounded-md border border-brand-border-subtle bg-brand-bg px-2 py-2 text-sm text-brand-text focus:outline-none"
-                      >
-                        {selectableCategories.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="mt-1">
+                        <CategorySelect
+                          value={choice}
+                          onChange={setChoice}
+                          options={categoryOptions}
+                          customOptions={customCategories}
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="text-xs text-brand-text-secondary">

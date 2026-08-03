@@ -35,12 +35,36 @@ export async function createBudget(userId: string, data: CreateBudgetInput){
     }
 }
 
-export async function listBudgets(userId:string){
-
+export async function listBudgets(userId: string, periodStart?: string) {
     return prisma.budget.findMany({
-        where: {userId},
-    
-    })
+        where: {
+            userId,
+            ...(periodStart && { periodStart: new Date(periodStart) }),
+        },
+    });
+}
+
+// Copy every budget from the `from` month into the `to` month. Categories
+// already budgeted in `to` are skipped (skipDuplicates) so re-running is safe
+// and won't clobber existing limits. Returns how many were copied.
+export async function copyBudgets(userId: string, from: string, to: string) {
+    const source = await prisma.budget.findMany({
+        where: { userId, periodStart: new Date(from) },
+    });
+
+    if (source.length === 0) return { copied: 0 };
+
+    const result = await prisma.budget.createMany({
+        data: source.map((b) => ({
+            userId,
+            category: b.category,
+            limitAmount: b.limitAmount,
+            periodStart: new Date(to),
+        })),
+        skipDuplicates: true,
+    });
+
+    return { copied: result.count };
 }
 
 export async function getBudget(userId: string, budgetId: string){

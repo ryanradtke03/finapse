@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { createBudgetSchema, updateBudgetSchema } from "./budget.schema";
-import { createBudget, deleteBudget, getBudget, listBudgets, updateBudget } from "./budget.service";
+import { copyBudgetSchema, createBudgetSchema, updateBudgetSchema } from "./budget.schema";
+import { copyBudgets, createBudget, deleteBudget, getBudget, listBudgets, updateBudget } from "./budget.service";
 
 export async function createBudgetHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -24,15 +24,39 @@ export async function listBudgetHandler(req: Request, res: Response, next: NextF
     try{
         const userId = req.user!.id;
 
+        const periodStart =
+            typeof req.query.periodStart === "string"
+                ? req.query.periodStart
+                : undefined;
 
-        const budgets = await listBudgets(userId);
+        const budgets = await listBudgets(userId, periodStart);
 
-        return res.status(201).json(budgets);
-        
+        return res.status(200).json(budgets);
+
     }catch(err){
         next(err)
     }
 
+}
+
+export async function copyBudgetHandler(req: Request, res: Response, next: NextFunction){
+    try{
+        const userId = req.user!.id;
+
+        const parsed = copyBudgetSchema.safeParse(req.body);
+        if (!parsed.success) {
+            return next(
+                Object.assign(new Error("Invalid request body"), { status: 400 }),
+            );
+        }
+
+        const result = await copyBudgets(userId, parsed.data.from, parsed.data.to);
+
+        return res.status(200).json(result);
+
+    }catch(err){
+        next(err)
+    }
 }
 
 export async function getBudgetHandler(req: Request, res: Response, next: NextFunction){

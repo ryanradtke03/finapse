@@ -2,12 +2,15 @@ import { useMemo, useState } from "react";
 import type { Budget } from "../api/budgets";
 import { BUDGET_CATEGORIES } from "../lib/budgetCategories";
 import { getTransactionCategoryLabel } from "../lib/transactionCategories";
+import { CategorySelect, type CategoryOption } from "./ui/CategorySelect";
 
 interface BudgetModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: { category: string; limitAmount: string }) => Promise<void>;
   initial?: Budget | null;
+  /** The user's existing custom categories, surfaced for reuse (FIN-90). */
+  customCategories?: CategoryOption[];
 }
 
 export function BudgetModal({
@@ -15,6 +18,7 @@ export function BudgetModal({
   onClose,
   onSubmit,
   initial,
+  customCategories,
 }: BudgetModalProps) {
   const [category, setCategory] = useState(initial?.category ?? "");
   const [limitAmount, setLimitAmount] = useState(
@@ -90,31 +94,15 @@ export function BudgetModal({
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div>
             <span className="text-xs text-brand-text-secondary">Category</span>
-            <select
-              className="mt-1 w-full rounded-md border border-brand-border-subtle bg-brand-bg px-2 py-2 text-brand-text focus:outline-none"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              autoFocus
-            >
-              <option value="" disabled>
-                Select a category
-              </option>
-              {groupedCategories.map(([group, options]) => (
-                <optgroup key={group} label={group}>
-                  {options.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-              {/* Preserve an existing custom/legacy category on edit even if
-                  it's not in the curated list above (e.g. a primary-level
-                  category from before this list went detailed). */}
-              {category && !BUDGET_CATEGORIES.some((c) => c.value === category) && (
-                <option value={category}>{getTransactionCategoryLabel(category)}</option>
-              )}
-            </select>
+            <div className="mt-1">
+              <CategorySelect
+                value={category}
+                onChange={setCategory}
+                groups={groupedCategories}
+                customOptions={customCategories}
+                autoFocus
+              />
+            </div>
           </div>
           <div>
             <span className="text-xs text-brand-text-secondary">

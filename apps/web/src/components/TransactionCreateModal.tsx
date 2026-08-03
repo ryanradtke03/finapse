@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CreateTransactionInput } from "../api/transactions";
+import { CategorySelect, type CategoryOption } from "./ui/CategorySelect";
 
 interface AccountOption {
   value: string;
@@ -10,7 +11,9 @@ interface TransactionCreateModalProps {
   open: boolean;
   onClose: () => void;
   accounts: AccountOption[];
-  categoryOptions: { value: string; label: string }[];
+  categoryOptions: CategoryOption[];
+  /** The user's existing custom categories, surfaced for reuse (FIN-90). */
+  customCategories?: CategoryOption[];
   onSubmit: (input: CreateTransactionInput) => Promise<void>;
 }
 
@@ -38,6 +41,7 @@ export function TransactionCreateModal({
   onClose,
   accounts,
   categoryOptions,
+  customCategories,
   onSubmit,
 }: TransactionCreateModalProps) {
   const [description, setDescription] = useState("");
@@ -199,20 +203,14 @@ export function TransactionCreateModal({
 
           <div>
             <label className="text-xs text-brand-text-secondary">Category</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="mt-1 w-full rounded-md border border-brand-border-subtle bg-brand-bg px-2 py-2 text-sm text-brand-text focus:outline-none"
-            >
-              <option value="" disabled>
-                Select a category
-              </option>
-              {categoryOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <CategorySelect
+                value={category}
+                onChange={setCategory}
+                options={categoryOptions}
+                customOptions={customCategories}
+              />
+            </div>
           </div>
 
           <div>
