@@ -65,6 +65,7 @@ export interface Transaction {
   personalFinanceCategory: string | null;
   personalFinanceCategoryDetail: string | null;
   userCategory: string | null;
+  categorySource: string | null;
   notes: string | null;
   tags: string[];
   source: TransactionSource;

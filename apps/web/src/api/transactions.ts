@@ -67,6 +67,9 @@ export interface TransactionPatch {
   category?: string | null;
   notes?: string | null;
   tags?: string[];
+  // When set with a non-null category, also apply that category to the
+  // merchant: "all" back-fills existing transactions too.
+  applyToMerchant?: "future" | "all";
 }
 
 export const updateTransaction = async (

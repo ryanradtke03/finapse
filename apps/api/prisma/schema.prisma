@@ -24,8 +24,30 @@ model User {
   plaidItems    PlaidItem[]
   budgets       Budget[]
   tokens        Token[]
+  merchantRules MerchantCategoryRule[]
 
   @@map("users")
+}
+
+// A user-defined rule that auto-assigns a category to every transaction from a
+// given merchant (FIN: merchant category rules). Created when the user
+// recategorizes a transaction and opts to apply it to the whole merchant.
+// merchantKey is "entity:<merchantEntityId>" when Plaid provides a stable
+// merchant entity id, else "name:<lowercased merchant name>". Rules are applied
+// at recategorization time (back-fill) and on every sync (new transactions),
+// by writing userCategory + categorySource=MERCHANT_RULE on matching rows.
+model MerchantCategoryRule {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantKey String   @map("merchant_key")
+  category    String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, merchantKey])
+  @@index([userId])
+  @@map("merchant_category_rules")
 }
 
 // Short-lived, single-use tokens for email verification and password reset.
@@ -135,6 +157,10 @@ model Transaction {
   personalFinanceCategoryDetail  String?             @map("personal_finance_category_detail")
 
   userCategory                   String?             @map("user_category")
+  // How userCategory was set: null = never overridden (uses Plaid/heuristic),
+  // "MANUAL" = user set this specific row, "MERCHANT_RULE" = applied by a
+  // MerchantCategoryRule. MANUAL rows are never overwritten by rule back-fill.
+  categorySource                 String?             @map("category_source")
 
   // Free-form user annotations (FIN-48 / FIN-56)
   notes                          String?
