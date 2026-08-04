@@ -52,12 +52,23 @@ export async function getTransactionsList(params: GetTransactionsParams) {
     ...(and.length > 0 && { AND: and }),
   };
 
-  const rows = await prisma.transaction.findMany({
-    where,
-    orderBy: [{ date: "desc" }, { id: "desc" }], // stable order for cursor paging
-    take,
-    ...(cursor && { cursor: { id: cursor }, skip: 1 }), // start after the last row sent
-  });
+  // Totals for the WHOLE filtered set (not just the current page), so the UI
+  // can show a running total that reflects the active filters/search regardless
+  // of pagination. amount is signed (positive = outflow/spend, negative =
+  // inflow), so _sum.amount is the net; count is the matching row count.
+  const [rows, totals] = await Promise.all([
+    prisma.transaction.findMany({
+      where,
+      orderBy: [{ date: "desc" }, { id: "desc" }], // stable order for cursor paging
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }), // start after the last row sent
+    }),
+    prisma.transaction.aggregate({
+      where,
+      _sum: { amount: true },
+      _count: true,
+    }),
+  ]);
 
   const nextCursor = rows.length === take ? rows[rows.length - 1].id : null;
 
@@ -68,7 +79,12 @@ export async function getTransactionsList(params: GetTransactionsParams) {
     isRecurring: recurringIds.has(t.id),
   }));
 
-  return { transactions, nextCursor };
+  return {
+    transactions,
+    nextCursor,
+    totalAmount: totals._sum.amount?.toNumber() ?? 0,
+    totalCount: totals._count,
+  };
 }
 
 // Detailed-level match, used by both the Transactions page (multi-select)

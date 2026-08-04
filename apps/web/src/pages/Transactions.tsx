@@ -96,6 +96,11 @@ export default function Transactions() {
   const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
   const rows = q.data?.pages.flatMap((p) => p.transactions) ?? [];
 
+  // Totals span the whole filtered set (same on every page), so read the first.
+  const totalAmount = q.data?.pages[0]?.totalAmount ?? 0;
+  const totalCount = q.data?.pages[0]?.totalCount ?? 0;
+  const totalIsIncome = totalAmount < 0; // signed: negative = net inflow
+
   const accountLookup = useMemo(() => {
     const map = new Map<
       string,
@@ -204,6 +209,23 @@ export default function Transactions() {
           + Add transaction
         </button>
       </div>
+
+      {!q.isLoading && rows.length > 0 && (
+        <div className="mb-3 flex items-center justify-between px-1 text-sm">
+          <span className="text-brand-text-secondary">
+            {totalCount} {totalCount === 1 ? "transaction" : "transactions"}
+          </span>
+          <span className="text-brand-text-secondary">
+            Total{" "}
+            <span
+              className={`font-semibold ${totalIsIncome ? "text-brand-green" : "text-brand-text"}`}
+            >
+              {totalIsIncome ? "+" : "-"}
+              {formatMoney(totalAmount)}
+            </span>
+          </span>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
         <div className="grid grid-cols-[2fr_1.2fr_1.2fr_1fr_1fr] gap-4 border-b border-brand-border-subtle px-5 py-3 text-xs tracking-wide text-brand-text-secondary uppercase">

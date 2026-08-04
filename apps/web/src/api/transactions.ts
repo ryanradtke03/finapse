@@ -17,6 +17,10 @@ export interface TransactionFilters {
 export interface TransactionsResponse {
   transactions: Transaction[];
   nextCursor: string | null;
+  // Totals across the ENTIRE filtered set (not just the returned page).
+  // totalAmount is signed net (positive = net outflow/spend).
+  totalAmount: number;
+  totalCount: number;
 }
 
 function buildFilterParams(
