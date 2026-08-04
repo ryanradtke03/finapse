@@ -14,6 +14,9 @@ export interface TransactionEditPatch {
   category?: string;
   notes?: string | null;
   tags?: string[];
+  // "all" = also apply the chosen category to every transaction from this
+  // merchant (back-fill + future). Omitted = this transaction only.
+  applyToMerchant?: "future" | "all";
 }
 
 interface TransactionDetailPanelProps {
@@ -175,6 +178,7 @@ export function TransactionDetailPanel({
   const [tagsInput, setTagsInput] = useState(
     transaction?.tags.join(", ") ?? "",
   );
+  const [applyToMerchant, setApplyToMerchant] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -190,6 +194,7 @@ export function TransactionDetailPanel({
       setChoice(getEffectiveCategory(transaction));
       setNotes(transaction.notes ?? "");
       setTagsInput(transaction.tags.join(", "));
+      setApplyToMerchant(false);
       setError("");
     } else if (transaction !== displayed) {
       setDisplayed(transaction);
@@ -225,10 +230,18 @@ export function TransactionDetailPanel({
   const isIncome = amount < 0;
   const canDelete = t?.source === "MANUAL" && !!onDelete;
 
+  // The merchant label the rule keys on — mirrors deriveMerchantKey on the
+  // server (merchantName, else the raw name). Every transaction has a name, so
+  // a rule can always be offered; the label just tells the user what it covers.
+  const merchantLabel = t?.merchantName ?? t?.name ?? null;
+  const canRuleMerchant = !!merchantLabel;
+  const categoryChanged = choice !== initialCategory;
+
   const startEditing = () => {
     setChoice(initialCategory);
     setNotes(initialNotes);
     setTagsInput(initialTags);
+    setApplyToMerchant(false);
     setError("");
     setEditing(true);
   };
@@ -239,7 +252,10 @@ export function TransactionDetailPanel({
     setError("");
 
     const patch: TransactionEditPatch = {};
-    if (choice !== initialCategory) patch.category = choice;
+    if (choice !== initialCategory) {
+      patch.category = choice;
+      if (applyToMerchant && canRuleMerchant) patch.applyToMerchant = "all";
+    }
     if (notes !== initialNotes)
       patch.notes = notes.trim() ? notes.trim() : null;
     const parsedTags = parseTags(tagsInput);
@@ -422,6 +438,25 @@ export function TransactionDetailPanel({
                           customOptions={customCategories}
                         />
                       </div>
+                      {categoryChanged && canRuleMerchant && (
+                        <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-brand-text-secondary">
+                          <input
+                            type="checkbox"
+                            checked={applyToMerchant}
+                            onChange={(e) =>
+                              setApplyToMerchant(e.target.checked)
+                            }
+                            className="mt-0.5 cursor-pointer accent-brand-green"
+                          />
+                          <span>
+                            Apply to all transactions from{" "}
+                            <span className="font-medium text-brand-text">
+                              {merchantLabel ?? "this merchant"}
+                            </span>{" "}
+                            (past and future)
+                          </span>
+                        </label>
+                      )}
                     </div>
                     <div>
                       <label className="text-xs text-brand-text-secondary">

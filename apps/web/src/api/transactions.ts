@@ -17,6 +17,10 @@ export interface TransactionFilters {
 export interface TransactionsResponse {
   transactions: Transaction[];
   nextCursor: string | null;
+  // Totals across the ENTIRE filtered set (not just the returned page).
+  // totalAmount is signed net (positive = net outflow/spend).
+  totalAmount: number;
+  totalCount: number;
 }
 
 function buildFilterParams(
@@ -67,6 +71,9 @@ export interface TransactionPatch {
   category?: string | null;
   notes?: string | null;
   tags?: string[];
+  // When set with a non-null category, also apply that category to the
+  // merchant: "all" back-fills existing transactions too.
+  applyToMerchant?: "future" | "all";
 }
 
 export const updateTransaction = async (

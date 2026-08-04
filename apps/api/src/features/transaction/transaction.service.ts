@@ -52,12 +52,23 @@ export async function getTransactionsList(params: GetTransactionsParams) {
     ...(and.length > 0 && { AND: and }),
   };
 
-  const rows = await prisma.transaction.findMany({
-    where,
-    orderBy: [{ date: "desc" }, { id: "desc" }], // stable order for cursor paging
-    take,
-    ...(cursor && { cursor: { id: cursor }, skip: 1 }), // start after the last row sent
-  });
+  // Totals for the WHOLE filtered set (not just the current page), so the UI
+  // can show a running total that reflects the active filters/search regardless
+  // of pagination. amount is signed (positive = outflow/spend, negative =
+  // inflow), so _sum.amount is the net; count is the matching row count.
+  const [rows, totals] = await Promise.all([
+    prisma.transaction.findMany({
+      where,
+      orderBy: [{ date: "desc" }, { id: "desc" }], // stable order for cursor paging
+      take,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }), // start after the last row sent
+    }),
+    prisma.transaction.aggregate({
+      where,
+      _sum: { amount: true },
+      _count: true,
+    }),
+  ]);
 
   const nextCursor = rows.length === take ? rows[rows.length - 1].id : null;
 
@@ -68,7 +79,12 @@ export async function getTransactionsList(params: GetTransactionsParams) {
     isRecurring: recurringIds.has(t.id),
   }));
 
-  return { transactions, nextCursor };
+  return {
+    transactions,
+    nextCursor,
+    totalAmount: totals._sum.amount?.toNumber() ?? 0,
+    totalCount: totals._count,
+  };
 }
 
 // Detailed-level match, used by both the Transactions page (multi-select)
@@ -347,10 +363,52 @@ export async function getTransactionById(
   return { ...transaction, isRecurring: recurringIds.has(transaction.id) };
 }
 
+// Stable key used to group a merchant's transactions for category rules.
+// Prefer Plaid's merchant entity id (consistent across differently-formatted
+// raw names); otherwise key on the transaction's merchant label — the same
+// `merchantName ?? name` the UI groups and searches by, so sandbox/real rows
+// that have no merchant_name (only a raw `name`) can still be ruled on.
+// Returns null only when there's genuinely no label at all.
+export function deriveMerchantKey(row: {
+  merchantEntityId: string | null;
+  merchantName: string | null;
+  name: string | null;
+}): string | null {
+  if (row.merchantEntityId) return `entity:${row.merchantEntityId}`;
+  const label = (row.merchantName ?? row.name)?.trim().toLowerCase();
+  return label ? `name:${label}` : null;
+}
+
+// Translates a merchant key back into a Prisma filter matching that merchant's
+// transactions. Entity-keyed rules match by merchantEntityId. Label-keyed rules
+// match rows without an entity id (so a label rule can't hijack a
+// differently-identified merchant) whose merchant label — merchantName, or the
+// raw name when merchantName is absent — equals the key, case-insensitively.
+function merchantKeyWhere(merchantKey: string): Prisma.TransactionWhereInput {
+  if (merchantKey.startsWith("entity:")) {
+    return { merchantEntityId: merchantKey.slice("entity:".length) };
+  }
+  const label = merchantKey.slice("name:".length);
+  return {
+    merchantEntityId: null,
+    OR: [
+      { merchantName: { equals: label, mode: "insensitive" } },
+      {
+        merchantName: null,
+        name: { equals: label, mode: "insensitive" },
+      },
+    ],
+  };
+}
+
 export interface TransactionPatch {
   userCategory?: string | null;
   notes?: string | null;
   tags?: string[];
+  // When set alongside a non-null userCategory, also create/refresh a merchant
+  // rule. "future" only stores the rule (applied to newly synced rows going
+  // forward); "all" additionally back-fills existing rows from this merchant.
+  applyToMerchant?: "future" | "all";
 }
 
 export async function updateTransaction(
@@ -360,21 +418,118 @@ export async function updateTransaction(
 ) {
   const existing = await prisma.transaction.findFirst({
     where: { id: transactionId, ...buildOwnershipWhere(userId) },
-    select: { id: true },
+    select: { id: true, merchantEntityId: true, merchantName: true, name: true },
   });
 
   if (!existing) {
     throw Object.assign(new Error("Transaction not found"), { status: 404 });
   }
 
-  return prisma.transaction.update({
+  // A user editing the category directly is always a MANUAL override for this
+  // row; clearing it (null) resets the source too.
+  const categorySourceUpdate =
+    patch.userCategory !== undefined
+      ? { categorySource: patch.userCategory === null ? null : "MANUAL" }
+      : {};
+
+  const updated = await prisma.transaction.update({
     where: { id: transactionId },
     data: {
-      ...(patch.userCategory !== undefined && { userCategory: patch.userCategory }),
+      ...(patch.userCategory !== undefined && {
+        userCategory: patch.userCategory,
+      }),
+      ...categorySourceUpdate,
       ...(patch.notes !== undefined && { notes: patch.notes }),
       ...(patch.tags !== undefined && { tags: patch.tags }),
     },
   });
+
+  // Merchant-rule handling only applies when setting a concrete category.
+  if (patch.applyToMerchant && patch.userCategory) {
+    const merchantKey = deriveMerchantKey(existing);
+    if (merchantKey) {
+      await upsertMerchantRule(
+        userId,
+        merchantKey,
+        patch.userCategory,
+        patch.applyToMerchant === "all",
+        transactionId,
+      );
+    }
+  }
+
+  return updated;
+}
+
+// Creates/updates the merchant rule and, when backfill is requested, applies it
+// to the merchant's other transactions — skipping rows the user set MANUAL-ly
+// and the just-edited row (already handled above). MERCHANT_RULE rows are
+// re-written so changing a rule re-applies cleanly.
+async function upsertMerchantRule(
+  userId: string,
+  merchantKey: string,
+  category: string,
+  backfill: boolean,
+  originTransactionId: string,
+) {
+  await prisma.merchantCategoryRule.upsert({
+    where: { userId_merchantKey: { userId, merchantKey } },
+    create: { userId, merchantKey, category },
+    update: { category },
+  });
+
+  if (!backfill) return;
+
+  await prisma.transaction.updateMany({
+    where: buildMerchantBackfillWhere(userId, merchantKey, originTransactionId),
+    data: { userCategory: category, categorySource: "MERCHANT_RULE" },
+  });
+}
+
+// Rows to back-fill for a merchant rule: same merchant, excluding the origin
+// row, and only rows the user hasn't MANUAL-ly set (null or prior rule).
+// NOTE: merchantKeyWhere can itself contain an `OR` (name-keyed rules), and so
+// does the categorySource guard — they MUST be combined under `AND`, not as two
+// `OR` keys in one object literal (the second would silently clobber the first,
+// matching every transaction). Exported so the composition is unit-tested.
+export function buildMerchantBackfillWhere(
+  userId: string,
+  merchantKey: string,
+  originTransactionId: string,
+): Prisma.TransactionWhereInput {
+  return {
+    ...buildOwnershipWhere(userId),
+    id: { not: originTransactionId },
+    AND: [
+      merchantKeyWhere(merchantKey),
+      { OR: [{ categorySource: null }, { categorySource: "MERCHANT_RULE" }] },
+    ],
+  };
+}
+
+// Applies every one of a user's merchant rules to transactions that don't yet
+// have a userCategory (i.e. freshly synced rows). Called after a Plaid sync.
+// Only touches rows with no override, so MANUAL and existing MERCHANT_RULE rows
+// are left alone. Runs inside the caller's transaction when `client` is passed.
+export async function applyMerchantRulesForUser(
+  userId: string,
+  client: Prisma.TransactionClient = prisma,
+): Promise<void> {
+  const rules = await client.merchantCategoryRule.findMany({
+    where: { userId },
+    select: { merchantKey: true, category: true },
+  });
+
+  for (const rule of rules) {
+    await client.transaction.updateMany({
+      where: {
+        ...buildOwnershipWhere(userId),
+        ...merchantKeyWhere(rule.merchantKey),
+        userCategory: null,
+      },
+      data: { userCategory: rule.category, categorySource: "MERCHANT_RULE" },
+    });
+  }
 }
 
 export async function deleteTransaction(
@@ -482,18 +637,50 @@ export function resolveEffectiveCategory(
   );
 }
 
+// Plaid categories that represent money moving between the user's own accounts
+// or paying down a card — NOT consumption. Excluded from Dashboard
+// spending/income totals so investment/retirement contributions (a TRANSFER_OUT
+// detail) and credit-card payments don't inflate the numbers. Excluding card
+// payments also prevents double-counting: card purchases are already captured on
+// the card account, so counting the checking->card payment too would count the
+// same spending twice. These rows still appear on the Transactions list.
+const NON_SPENDING_PRIMARY_CATEGORIES = ["TRANSFER_IN", "TRANSFER_OUT"];
+const NON_SPENDING_DETAIL_CATEGORIES = ["LOAN_PAYMENTS_CREDIT_CARD_PAYMENT"];
+
+// Excludes transfer/card-payment rows unless the user has explicitly
+// recategorized them (userCategory override wins, matching
+// resolveEffectiveCategory precedence). Exported for unit testing.
+export function buildExcludeTransfersWhere(): Prisma.TransactionWhereInput {
+  return {
+    NOT: {
+      userCategory: null,
+      OR: [
+        { personalFinanceCategory: { in: NON_SPENDING_PRIMARY_CATEGORIES } },
+        {
+          personalFinanceCategoryDetail: { in: NON_SPENDING_DETAIL_CATEGORIES },
+        },
+      ],
+    },
+  };
+}
+
 export async function getTransactionSummary(params: GetSummaryParams) {
   const { userId, startDate, endDate, accountId, category } = params;
 
   const recurringIds = await getRecurringTransactionIds(userId);
 
+  // When no explicit category filter is active, drop transfers/card payments
+  // so the headline totals reflect real spending. If the user explicitly
+  // selects a category (even a transfer one), honor that selection instead.
+  const categoryOrTransferWhere = category?.length
+    ? buildDetailedCategoryWhere(category, recurringIds)
+    : buildExcludeTransfersWhere();
+
   const baseWhere: Prisma.TransactionWhereInput = {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category?.length
-      ? buildDetailedCategoryWhere(category, recurringIds)
-      : {}),
+    ...categoryOrTransferWhere,
     amount: { gt: 0 },
   };
 
@@ -533,9 +720,7 @@ export async function getTransactionSummary(params: GetSummaryParams) {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category?.length
-      ? buildDetailedCategoryWhere(category, recurringIds)
-      : {}),
+    ...categoryOrTransferWhere,
     amount: { lt: 0 },
   };
 

@@ -113,6 +113,9 @@ const updateSchema = z
     category: z.string().min(1).nullable().optional(),
     notes: z.string().nullable().optional(),
     tags: z.array(z.string()).optional(),
+    // When set with a non-null category, also create a merchant rule.
+    // "future" stores the rule only; "all" also back-fills existing rows.
+    applyToMerchant: z.enum(["future", "all"]).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "No fields to update",
@@ -134,12 +137,13 @@ export async function updateTransactionHandler(
       );
     }
 
-    const { category, notes, tags } = parsed.data;
+    const { category, notes, tags, applyToMerchant } = parsed.data;
 
     const transaction = await updateTransaction(userId, id, {
       ...(category !== undefined && { userCategory: category }),
       ...(notes !== undefined && { notes }),
       ...(tags !== undefined && { tags }),
+      ...(applyToMerchant !== undefined && { applyToMerchant }),
     });
 
     return res.status(200).json({ transaction });

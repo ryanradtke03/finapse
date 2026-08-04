@@ -7,7 +7,10 @@ import {
 import { prisma } from "../../db/prisma";
 import { decrypt, encrypt } from "../../lib/encryption";
 import { plaidClient } from "../../lib/plaidClient";
-import { invalidateRecurringCache } from "../transaction/transaction.service";
+import {
+  applyMerchantRulesForUser,
+  invalidateRecurringCache,
+} from "../transaction/transaction.service";
 
 // ─────────────────────────────────────────
 // createLinkToken — new bank connection
@@ -509,6 +512,14 @@ export async function syncTransactions(
       });
     }
     console.log("[sync] step 3 done");
+
+    // 3b. Apply the user's merchant category rules to any newly synced rows
+    // that don't yet have an override, so a rule set on one transaction keeps
+    // categorizing future transactions from the same merchant (FIN merchant
+    // rules). Only touches userCategory-null rows; MANUAL/rule rows untouched.
+    console.log("[sync] step 3b — applying merchant category rules");
+    await applyMerchantRulesForUser(userId, tx);
+    console.log("[sync] step 3b done");
 
     // 4. Delete removed transactions
     console.log(
