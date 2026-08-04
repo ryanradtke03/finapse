@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   resolveEffectiveCategory,
   buildDetailedCategoryWhere,
+  buildExcludeTransfersWhere,
 } from "../transaction.service";
 
 describe("resolveEffectiveCategory", () => {
@@ -104,5 +105,23 @@ describe("buildDetailedCategoryWhere", () => {
     );
     const orClause = where.OR as unknown[];
     expect(orClause).toHaveLength(2);
+  });
+});
+
+describe("buildExcludeTransfersWhere", () => {
+  it("excludes transfer primaries and card payments only when there's no user override", () => {
+    expect(buildExcludeTransfersWhere()).toEqual({
+      NOT: {
+        userCategory: null,
+        OR: [
+          { personalFinanceCategory: { in: ["TRANSFER_IN", "TRANSFER_OUT"] } },
+          {
+            personalFinanceCategoryDetail: {
+              in: ["LOAN_PAYMENTS_CREDIT_CARD_PAYMENT"],
+            },
+          },
+        ],
+      },
+    });
   });
 });

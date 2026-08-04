@@ -482,18 +482,50 @@ export function resolveEffectiveCategory(
   );
 }
 
+// Plaid categories that represent money moving between the user's own accounts
+// or paying down a card — NOT consumption. Excluded from Dashboard
+// spending/income totals so investment/retirement contributions (a TRANSFER_OUT
+// detail) and credit-card payments don't inflate the numbers. Excluding card
+// payments also prevents double-counting: card purchases are already captured on
+// the card account, so counting the checking->card payment too would count the
+// same spending twice. These rows still appear on the Transactions list.
+const NON_SPENDING_PRIMARY_CATEGORIES = ["TRANSFER_IN", "TRANSFER_OUT"];
+const NON_SPENDING_DETAIL_CATEGORIES = ["LOAN_PAYMENTS_CREDIT_CARD_PAYMENT"];
+
+// Excludes transfer/card-payment rows unless the user has explicitly
+// recategorized them (userCategory override wins, matching
+// resolveEffectiveCategory precedence). Exported for unit testing.
+export function buildExcludeTransfersWhere(): Prisma.TransactionWhereInput {
+  return {
+    NOT: {
+      userCategory: null,
+      OR: [
+        { personalFinanceCategory: { in: NON_SPENDING_PRIMARY_CATEGORIES } },
+        {
+          personalFinanceCategoryDetail: { in: NON_SPENDING_DETAIL_CATEGORIES },
+        },
+      ],
+    },
+  };
+}
+
 export async function getTransactionSummary(params: GetSummaryParams) {
   const { userId, startDate, endDate, accountId, category } = params;
 
   const recurringIds = await getRecurringTransactionIds(userId);
 
+  // When no explicit category filter is active, drop transfers/card payments
+  // so the headline totals reflect real spending. If the user explicitly
+  // selects a category (even a transfer one), honor that selection instead.
+  const categoryOrTransferWhere = category?.length
+    ? buildDetailedCategoryWhere(category, recurringIds)
+    : buildExcludeTransfersWhere();
+
   const baseWhere: Prisma.TransactionWhereInput = {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category?.length
-      ? buildDetailedCategoryWhere(category, recurringIds)
-      : {}),
+    ...categoryOrTransferWhere,
     amount: { gt: 0 },
   };
 
@@ -533,9 +565,7 @@ export async function getTransactionSummary(params: GetSummaryParams) {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
     ...(accountId && { accountId }),
-    ...(category?.length
-      ? buildDetailedCategoryWhere(category, recurringIds)
-      : {}),
+    ...categoryOrTransferWhere,
     amount: { lt: 0 },
   };
 
