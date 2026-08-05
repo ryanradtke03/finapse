@@ -4,7 +4,7 @@ import { prisma } from "../../db/prisma";
 
 interface GetTransactionsParams {
   userId: string;
-  accountId?: string;
+  accountId?: string[];
   startDate?: string;
   endDate?: string;
   search?: string;
@@ -48,7 +48,7 @@ export async function getTransactionsList(params: GetTransactionsParams) {
   const where: Prisma.TransactionWhereInput = {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
-    ...(accountId && { accountId }),
+    ...(accountId && accountId.length > 0 && { accountId: { in: accountId } }),
     ...(and.length > 0 && { AND: and }),
   };
 
@@ -679,7 +679,7 @@ export async function getTransactionSummary(params: GetSummaryParams) {
   const baseWhere: Prisma.TransactionWhereInput = {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
-    ...(accountId && { accountId }),
+    ...(accountId && accountId.length > 0 && { accountId: { in: accountId } }),
     ...categoryOrTransferWhere,
     amount: { gt: 0 },
   };
@@ -719,7 +719,7 @@ export async function getTransactionSummary(params: GetSummaryParams) {
   const incomeWhere: Prisma.TransactionWhereInput = {
     ...buildOwnershipWhere(userId),
     ...buildDateWhere(startDate, endDate),
-    ...(accountId && { accountId }),
+    ...(accountId && accountId.length > 0 && { accountId: { in: accountId } }),
     ...categoryOrTransferWhere,
     amount: { lt: 0 },
   };
@@ -783,7 +783,7 @@ interface GetSummaryParams {
   userId: string;
   startDate?: string;
   endDate?: string;
-  accountId?: string;
+  accountId?: string[];
   category?: string[];
 }
 

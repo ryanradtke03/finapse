@@ -1,354 +1,978 @@
 {
-  "info": {
-    "_postman_id": "ae79e268-86f1-4449-afc8-5a8908ac5dcc",
-    "name": "Finapse V1",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "52590935",
-    "_collection_link": "https://go.postman.co/collection/52590935-ae79e268-86f1-4449-afc8-5a8908ac5dcc?source=collection_link"
-  },
-  "item": [
+ "info": {
+  "_postman_id": "ae79e268-86f1-4449-afc8-5a8908ac5dcc",
+  "name": "Finapse API v1",
+  "description": "REST API for **Finapse**, a personal-finance app (Plaid bank sync, transactions, budgets).\n\n## Base URL\nAll requests use the `{{baseURL}}` variable \u2014 set it in a Postman environment to your API root including the version prefix, e.g. `http://localhost:4000/api/v1`.\n\n## Auth\nCookie-based. Run **Auth \u2192 Login** once; it sets an HTTP-only JWT cookie that Postman reuses for every protected request. Some Plaid routes also require a verified email.\n\n## Path variables\nRequests with `:id` / `:itemId` have a placeholder under the request's **Path Variables** tab \u2014 set a real id there (grab one from **Get Items** or **Get Transaction List**).\n\n## Folders\n- **Auth** \u2014 register, login, session, profile, password/email flows\n- **Plaid** \u2014 connect banks, sync, backfill, webhooks\n- **Budget** \u2014 monthly budgets (one per category per month)\n- **Transaction** \u2014 list, summary, categories, edit\n- **Health** \u2014 uptime probe",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+  "_exporter_id": "52590935"
+ },
+ "item": [
+  {
+   "name": "Auth",
+   "description": "User registration, login, session, profile, and password/email flows. Auth is cookie-based: **Login** sets an HTTP-only JWT cookie that every protected request reuses automatically. Register/login/forgot/reset are rate-limited.",
+   "item": [
     {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "Register",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"email\": \"test@test.com\",\n    \"password\": \"password123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/auth/register",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "auth",
-                "register"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Login",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"email\": \"test@test.com\",\n    \"password\": \"password123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/auth/login",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Me",
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseURL}}/auth/me",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Logout",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseURL}}/auth/logout",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "auth",
-                "logout"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Google Auth",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseURL}}/auth/google",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "auth",
-                "google"
-              ]
-            }
-          },
-          "response": []
+     "name": "Register",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Create a new account and send a verification email. `password` min 8 chars.\n\n**Auth:** public \u2014 no session required.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"email\": \"test@test.com\",\n    \"password\": \"password123\",\n    \"fullName\": \"Test User\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
         }
-      ]
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/auth/register",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "register"
+       ]
+      }
+     },
+     "response": []
     },
     {
-      "name": "Plaid",
-      "item": [
-        {
-          "name": "Create Link Token",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"email\": \"test@test.com\",\n    \"password\": \"password123\"\n}"
-            },
-            "url": {
-              "raw": "{{baseURL}}/plaid/create-link-token",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "plaid",
-                "create-link-token"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Exchange Token",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseURL}}/plaid/exchange-token",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "plaid",
-                "exchange-token"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Sync",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseURL}}/plaid/sync/687dbfda-22b3-4244-84ba-30cd902817fe",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "plaid",
-                "sync",
-                "687dbfda-22b3-4244-84ba-30cd902817fe"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Items",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseURL}}/plaid/item",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "plaid",
-                "item"
-              ]
-            }
-          },
-          "response": []
+     "name": "Login",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Authenticate and set the HTTP-only JWT session cookie. Run this first \u2014 every protected request relies on the cookie it sets.\n\n**Auth:** public \u2014 no session required.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"email\": \"test@test.com\",\n    \"password\": \"password123\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
         }
-      ]
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/auth/login",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ]
+      }
+     },
+     "response": []
     },
     {
-      "name": "Recipies (Depricated)",
-      "item": [
-        {
-          "name": "Create Recipie",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Recipie to delete\",\n  \"description\": \"Creamy garlic butter chicken pasta with parmesan.\",\n  \"servings\": 4,\n  \"prepTimeMin\": 15,\n  \"cookTimeMin\": 25,\n  \"ingredients\": [\n    {\n      \"name\": \"Chicken Breast\",\n      \"amount\": \"2 large\"\n    },\n    {\n      \"name\": \"Pasta\",\n      \"amount\": \"250g\"\n    },\n    {\n      \"name\": \"Garlic\",\n      \"amount\": \"3 cloves\"\n    },\n    {\n      \"name\": \"Butter\",\n      \"amount\": \"2 tbsp\"\n    },\n    {\n      \"name\": \"Heavy Cream\",\n      \"amount\": \"1 cup\"\n    },\n    {\n      \"name\": \"Parmesan Cheese\",\n      \"amount\": \"1/2 cup\"\n    },\n    {\n      \"name\": \"Salt\",\n      \"amount\": \"to taste\"\n    },\n    {\n      \"name\": \"Black Pepper\",\n      \"amount\": \"to taste\"\n    }\n  ],\n  \"steps\": [\n    {\n      \"order\": 1,\n      \"title\": \"Boil Pasta\",\n      \"instructions\": \"Bring a large pot of salted water to a boil and cook pasta according to package instructions.\"\n    },\n    {\n      \"order\": 2,\n      \"title\": \"Cook Chicken\",\n      \"instructions\": \"Season chicken with salt and pepper, then cook in butter over medium heat until golden and cooked through.\"\n    },\n    {\n      \"order\": 3,\n      \"title\": \"Prepare Sauce\",\n      \"instructions\": \"Add minced garlic to the pan and cook until fragrant. Pour in heavy cream and simmer for 5 minutes.\"\n    },\n    {\n      \"order\": 4,\n      \"title\": \"Combine\",\n      \"instructions\": \"Stir in parmesan cheese until melted. Add drained pasta and toss to coat evenly.\"\n    },\n    {\n      \"order\": 5,\n      \"title\": \"Serve\",\n      \"instructions\": \"Plate and garnish with additional parmesan and fresh parsley if desired.\"\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "List Recipies",
-          "protocolProfileBehavior": {
-            "disableBodyPruning": true
-          },
-          "request": {
-            "method": "GET",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/list",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies",
-                "list"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Recipie by Id",
-          "protocolProfileBehavior": {
-            "disableBodyPruning": true
-          },
-          "request": {
-            "method": "GET",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/a511d6a7-b77f-49e0-b422-e242528c4785",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies",
-                "a511d6a7-b77f-49e0-b422-e242528c4785"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Recipie",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/5bf7d40d-476b-4e6a-93c4-780692300cbd",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies",
-                "5bf7d40d-476b-4e6a-93c4-780692300cbd"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update Recipie",
-          "request": {
-            "method": "PUT",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseURL}}/recipies/a511d6a7-b77f-49e0-b422-e242528c4785",
-              "host": [
-                "{{baseURL}}"
-              ],
-              "path": [
-                "recipies",
-                "a511d6a7-b77f-49e0-b422-e242528c4785"
-              ]
-            }
-          },
-          "response": []
+     "name": "Get Me",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Return the currently authenticated user's profile.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/auth/me",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "me"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Update Profile",
+     "request": {
+      "method": "PUT",
+      "header": [],
+      "description": "Update the user's display name (`fullName`, 1\u2013100 chars).\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"fullName\": \"New Name\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
         }
-      ]
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/auth/me",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "me"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Change Password",
+     "request": {
+      "method": "PUT",
+      "header": [],
+      "description": "Change the password for the logged-in user. `newPassword` min 8 chars.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"currentPassword\": \"password123\",\n    \"newPassword\": \"newpassword123\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/auth/password",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "password"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Logout",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Clear the session cookie.\n\n**Auth:** public \u2014 no session required.",
+      "url": {
+       "raw": "{{baseURL}}/auth/logout",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "logout"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Delete Account",
+     "request": {
+      "method": "DELETE",
+      "header": [],
+      "description": "Permanently delete the authenticated user's account and associated data.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/auth/me",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "me"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Verify Email",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Confirm an email address using the token from the verification email. In dev the token is printed to the API server console (no real mailer \u2014 FIN-110).\n\n**Auth:** public \u2014 no session required.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"token\": \"PASTE_VERIFICATION_TOKEN\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/auth/verify-email",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "verify-email"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Resend Verification",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Re-send the verification email to the logged-in user. Rate-limited.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/auth/resend-verification",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "resend-verification"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Forgot Password",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Start a password reset; emails a reset token (printed to the server console in dev). Rate-limited.\n\n**Auth:** public \u2014 no session required.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"email\": \"test@test.com\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/auth/forgot-password",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "forgot-password"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Reset Password",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Complete a password reset using the emailed token.\n\n**Auth:** public \u2014 no session required.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"token\": \"PASTE_RESET_TOKEN\",\n    \"newPassword\": \"newpassword123\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/auth/reset-password",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "reset-password"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Google Auth",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Begin the Google OAuth flow (Passport). Open in a browser, not Postman.\n\n**Auth:** public \u2014 no session required.",
+      "url": {
+       "raw": "{{baseURL}}/auth/google",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "google"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Google Callback",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "OAuth redirect target \u2014 Google calls this. Sets the session cookie and redirects to the frontend. Not called manually.\n\n**Auth:** public \u2014 no session required.",
+      "url": {
+       "raw": "{{baseURL}}/auth/google/callback",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "auth",
+        "google",
+        "callback"
+       ]
+      }
+     },
+     "response": []
     }
-  ]
+   ]
+  },
+  {
+   "name": "Plaid",
+   "description": "Bank connections via Plaid. Flow: **Create Link Token** \u2192 user completes Plaid Link on the frontend \u2192 **Exchange Token** stores an encrypted access token and does the initial sync \u2192 transactions stay fresh via the **Webhook** receiver (or manual **Sync**/**Backfill**). Create/Exchange also require a verified email.",
+   "item": [
+    {
+     "name": "Create Link Token",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Create a short-lived Plaid Link token. Omit `institution_id` for a brand-new connection; pass it to enter update mode (re-auth / add accounts). Attaches `PLAID_WEBHOOK_URL` when configured.\n\n**Auth:** requires a valid session cookie (run **Login** first). Also requires a verified email.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"institution_id\": \"(optional \\u2014 omit for a new connection; set for update/reconnect mode)\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/plaid/create-link-token",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "create-link-token"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Exchange Token",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Exchange the Link `public_token` for a permanent access token (encrypted at rest), create the PlaidItem + accounts, and kick off the initial transaction sync in the background.\n\n**Auth:** requires a valid session cookie (run **Login** first). Also requires a verified email.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"public_token\": \"PASTE_PUBLIC_TOKEN\",\n    \"institution\": {\n        \"id\": \"ins_1\",\n        \"name\": \"Test Bank\",\n        \"accounts\": []\n    }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/plaid/exchange-token",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "exchange-token"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Sync",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Incremental transaction sync for one item using its stored cursor (only new/changed rows). This is the manual 'Sync now'.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/plaid/sync/:itemId",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "sync",
+        ":itemId"
+       ],
+       "variable": [
+        {
+         "key": "itemId",
+         "value": "REPLACE_WITH_ITEM_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Backfill (full re-sync)",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Force a full re-sync: ignores the cursor and re-fetches the item's entire history, re-upserting every transaction to repopulate fields added after older rows were first synced (FIN-95/98). The final cursor is saved so normal syncs resume incrementally.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/plaid/backfill/:itemId",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "backfill",
+        ":itemId"
+       ],
+       "variable": [
+        {
+         "key": "itemId",
+         "value": "REPLACE_WITH_ITEM_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Update Webhooks",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Register the configured `PLAID_WEBHOOK_URL` on the user's already-connected items via Plaid's itemWebhookUpdate, so banks linked before the URL was set start receiving webhooks without a relink (FIN-106). Idempotent.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/plaid/update-webhooks",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "update-webhooks"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Webhook (Plaid \u2192 server)",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "**Called by Plaid, not by you.** No auth cookie \u2014 trust comes from verifying Plaid's signed `Plaid-Verification` JWT over the raw body. `TRANSACTIONS/SYNC_UPDATES_AVAILABLE` triggers an auto-sync; `ITEM/ITEM_LOGIN_REQUIRED` flips the item to NEEDS_REAUTH. Included for reference; a manual call will 401 without a valid signature.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"webhook_type\": \"TRANSACTIONS\",\n    \"webhook_code\": \"SYNC_UPDATES_AVAILABLE\",\n    \"item_id\": \"PLAID_ITEM_ID\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/plaid/webhook",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "webhook"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Get Items",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "List the user's connected banks (PlaidItems) with their accounts and status.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/plaid/item",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "item"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Delete Item",
+     "request": {
+      "method": "DELETE",
+      "header": [],
+      "description": "Remove a bank connection: revokes the token with Plaid (itemRemove) and deletes the PlaidItem and its accounts/transactions locally.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/plaid/item/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "item",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Delete Account",
+     "request": {
+      "method": "DELETE",
+      "header": [],
+      "description": "Remove a single account from a connected item (the item and its other accounts stay).\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/plaid/account/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "plaid",
+        "account",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    }
+   ]
+  },
+  {
+   "name": "Budget",
+   "description": "Monthly budgets, one per category per month (unique on user+category+periodStart). `periodStart` is the first of the month (YYYY-MM-01). Spend-vs-limit is computed from the transaction summary on the frontend.",
+   "item": [
+    {
+     "name": "Create Budget",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Create a budget. `category` is a Plaid detailed category or a custom `CUSTOM_*` value; `limitAmount` is a decimal string; `periodStart` is the first of the month. Duplicate category+period returns 409.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"category\": \"FOOD_AND_DRINK_GROCERIES\",\n    \"limitAmount\": \"500.00\",\n    \"periodStart\": \"2026-08-01\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/budget",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "budget"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Copy Budgets",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Copy every budget from the `from` month into the `to` month. Categories already budgeted in `to` are skipped, so it's safe to re-run. Returns `{ copied }`.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"from\": \"2026-07-01\",\n    \"to\": \"2026-08-01\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/budget/copy",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "budget",
+        "copy"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "List Budgets",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "List the user's budgets. Optional `periodStart` query filters to one month; omit for all.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/budget?periodStart=2026-08-01",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "budget"
+       ],
+       "query": [
+        {
+         "key": "periodStart",
+         "value": "2026-08-01"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Get Budget",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Fetch a single budget by id (owner-scoped).\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/budget/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "budget",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Update Budget",
+     "request": {
+      "method": "PUT",
+      "header": [],
+      "description": "Update a budget's `limitAmount` (and/or `category`/`periodStart`).\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"limitAmount\": \"750.00\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/budget/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "budget",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Delete Budget",
+     "request": {
+      "method": "DELETE",
+      "header": [],
+      "description": "Delete a budget by id.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/budget/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "budget",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    }
+   ]
+  },
+  {
+   "name": "Transaction",
+   "description": "Read and edit transactions. Summary/list default to real spending \u2014 transfers and credit-card payments are excluded from headline totals unless a category filter is applied. Category precedence: user override \u2192 subscription heuristic \u2192 Plaid detailed \u2192 Plaid primary.",
+   "item": [
+    {
+     "name": "Get Transaction List",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Paginated, filterable list. Optional query params: `search` (name/merchant), `category` (repeatable for multi-select), `accountId`, `startDate`/`endDate`, `limit`, `cursor`. Returns transactions plus `nextCursor`, `totalAmount`, `totalCount`.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/transaction",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "transaction"
+       ],
+       "query": [
+        {
+         "key": "search",
+         "value": null,
+         "disabled": true
+        },
+        {
+         "key": "category",
+         "value": null,
+         "disabled": true
+        },
+        {
+         "key": "accountId",
+         "value": null,
+         "disabled": true
+        },
+        {
+         "key": "startDate",
+         "value": null,
+         "disabled": true
+        },
+        {
+         "key": "endDate",
+         "value": null,
+         "disabled": true
+        },
+        {
+         "key": "limit",
+         "value": "50",
+         "disabled": true
+        },
+        {
+         "key": "cursor",
+         "value": null,
+         "disabled": true
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Create Transaction",
+     "request": {
+      "method": "POST",
+      "header": [],
+      "description": "Create a manual (non-Plaid) transaction. `amount` positive = spending, negative = income. `category` sets the user override.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"accountId\": \"PASTE_ACCOUNT_ID\",\n    \"amount\": 12.5,\n    \"date\": \"2026-08-01\",\n    \"name\": \"Coffee\",\n    \"category\": \"FOOD_AND_DRINK_COFFEE\",\n    \"notes\": null,\n    \"tags\": []\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/transaction",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "transaction"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Get Transaction Summary",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Aggregated totals for a period: `byCategory`, `byDay`, `totalSpent`, `totalIncome`. Transfers/card payments are excluded unless a `category` filter is passed. Powers the Dashboard and Budgets pages.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/transaction/summary?startDate=2026-08-01&endDate=2026-09-01",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "transaction",
+        "summary"
+       ],
+       "query": [
+        {
+         "key": "startDate",
+         "value": "2026-08-01"
+        },
+        {
+         "key": "endDate",
+         "value": "2026-09-01"
+        },
+        {
+         "key": "accountId",
+         "value": null,
+         "disabled": true
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Get Categories",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Distinct effective categories present in the user's transactions (for filter menus).\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/transaction/categories",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "transaction",
+        "categories"
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Get Transaction",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Fetch a single transaction by id with its account and computed `isRecurring` flag.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/transaction/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "transaction",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Update Transaction",
+     "request": {
+      "method": "PATCH",
+      "header": [],
+      "description": "Edit a transaction. `category` sets the user override (null clears it). `applyToMerchant: \"all\"` also creates a merchant rule that recategorizes this merchant's past and future transactions; `\"future\"` applies to new ones only.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n    \"category\": \"GENERAL_MERCHANDISE_ELECTRONICS\",\n    \"notes\": \"reimbursable\",\n    \"tags\": [\n        \"work\"\n    ],\n    \"applyToMerchant\": \"all\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      },
+      "url": {
+       "raw": "{{baseURL}}/transaction/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "transaction",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    },
+    {
+     "name": "Delete Transaction",
+     "request": {
+      "method": "DELETE",
+      "header": [],
+      "description": "Soft-delete a transaction (hidden from lists/summaries). Manual transactions only.\n\n**Auth:** requires a valid session cookie (run **Login** first).",
+      "url": {
+       "raw": "{{baseURL}}/transaction/:id",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "transaction",
+        ":id"
+       ],
+       "variable": [
+        {
+         "key": "id",
+         "value": "REPLACE_WITH_ID"
+        }
+       ]
+      }
+     },
+     "response": []
+    }
+   ]
+  },
+  {
+   "name": "Health",
+   "description": "Service health check for uptime monitoring.",
+   "item": [
+    {
+     "name": "Health Check",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "description": "Liveness probe. Returns 200 when the API is up.\n\n**Auth:** public \u2014 no session required.",
+      "url": {
+       "raw": "{{baseURL}}/health",
+       "host": [
+        "{{baseURL}}"
+       ],
+       "path": [
+        "health"
+       ]
+      }
+     },
+     "response": []
+    }
+   ]
+  }
+ ]
 }

@@ -41,6 +41,15 @@ function CheckIcon() {
   );
 }
 
+// Indeterminate state for "select all" when only some options are selected.
+function DashIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M3 6h6" />
+    </svg>
+  );
+}
+
 export function MultiSelectDropdown({
   label,
   values,
@@ -80,10 +89,13 @@ export function MultiSelectDropdown({
     }
   }
 
+  const allValues = options.map((o) => o.value);
+  const allSelected =
+    options.length > 0 && allValues.every((v) => values.includes(v));
+  const someSelected = values.length > 0 && !allSelected;
+
   const summary =
-    values.length === 0
-      ? allLabel
-      : `${values.length} selected`;
+    values.length === 0 || allSelected ? allLabel : `${values.length} selected`;
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -107,9 +119,18 @@ export function MultiSelectDropdown({
         <div className="absolute left-0 top-full z-20 mt-1.5 max-h-80 min-w-full overflow-y-auto rounded-xl border border-brand-border bg-brand-surface-raised py-1 shadow-2xl">
           <button
             type="button"
-            onClick={() => onChange([])}
-            className="block w-full cursor-pointer whitespace-nowrap px-4 py-2 text-left text-sm text-brand-text-secondary transition-colors duration-100 hover:bg-brand-border-subtle"
+            onClick={() => onChange(allSelected ? [] : allValues)}
+            className="flex w-full cursor-pointer items-center gap-2.5 whitespace-nowrap px-4 py-2 text-left text-sm text-brand-text transition-colors duration-100 hover:bg-brand-border-subtle"
           >
+            <span
+              className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                allSelected || someSelected
+                  ? "border-brand-green bg-brand-green text-brand-bg"
+                  : "border-brand-border-subtle text-transparent"
+              }`}
+            >
+              {someSelected ? <DashIcon /> : <CheckIcon />}
+            </span>
             {allLabel}
           </button>
           <div className="my-1 border-t border-brand-border-subtle" />

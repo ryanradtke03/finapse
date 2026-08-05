@@ -5,6 +5,7 @@ import { requireEnv } from "../../config/env";
 import { prisma } from "../../db/prisma";
 import { decrypt } from "../../lib/encryption";
 import { sendEmail } from "../../lib/email";
+import { passwordResetEmail, verificationEmail } from "../../lib/emailTemplates";
 import { plaidClient } from "../../lib/plaidClient";
 import { createToken, consumeToken } from "./token.service";
 
@@ -32,11 +33,7 @@ async function sendVerificationEmail(user: { id: string; email: string }) {
     EMAIL_VERIFY_TTL_MS,
   );
   const link = `${appUrl()}/verify-email?token=${token}`;
-  await sendEmail({
-    to: user.email,
-    subject: "Verify your Finapse email",
-    text: `Welcome to Finapse! Confirm your email to unlock bank connections:\n\n${link}\n\nThis link expires in 24 hours.`,
-  });
+  await sendEmail({ to: user.email, ...verificationEmail(link) });
 }
 
 export async function registerUser(data: { email: string; password: string; fullName: string }) {
@@ -122,11 +119,7 @@ export async function requestPasswordReset(rawEmail: string) {
     PASSWORD_RESET_TTL_MS,
   );
   const link = `${appUrl()}/reset-password?token=${token}`;
-  await sendEmail({
-    to: user.email,
-    subject: "Reset your Finapse password",
-    text: `We received a request to reset your password. Set a new one:\n\n${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
-  });
+  await sendEmail({ to: user.email, ...passwordResetEmail(link) });
 }
 
 // Complete a password reset with a valid token. Completing it proves the user

@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { AuthModal } from "../components/AuthModal";
 import { FullLogo, LogoText } from "../components/Logo";
+import {
+  MARKETING_FOOTER_LINKS,
+  MARKETING_NAV_LINKS,
+} from "../components/MarketingLayout";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   account_exists:
     "An account with this email already exists. Log in with your password.",
   google_failed: "Google sign-in failed. Please try again.",
 };
-
-const NAV_LINKS = ["Features", "Pricing", "Blog", "About"];
-const FOOTER_LINKS = ["Privacy", "Terms", "Contact"];
 
 const FEATURES = [
   {
@@ -149,10 +151,10 @@ const STATS = [
   },
 ];
 
-function NavLink({ label, onClick }: { label: string; onClick?: () => void }) {
+function NavLink({ label, to }: { label: string; to: string }) {
   return (
-    <button
-      onClick={onClick}
+    <Link
+      to={to}
       className={`
         text-brand-text-secondary
         cursor-pointer
@@ -161,7 +163,7 @@ function NavLink({ label, onClick }: { label: string; onClick?: () => void }) {
         `}
     >
       {label}
-    </button>
+    </Link>
   );
 }
 
@@ -239,27 +241,35 @@ function StatCard({
 }
 
 export default function Landing() {
-  // A bounced Google sign-in (FIN-103) redirects back with ?authError=… — read
-  // it once at mount so we can open the login modal with the message.
-  const initialAuthCode = new URLSearchParams(window.location.search).get(
-    "authError",
+  // Two ways the modal can open on mount:
+  // • ?authError=… — a bounced Google sign-in (FIN-103) redirects back with a
+  //   code so we can reopen login with the message.
+  // • ?auth=login|signup — the marketing subpages (FIN-101) deep-link here to
+  //   open the modal on the right tab, since the landing page owns it.
+  const initialParams = new URLSearchParams(window.location.search);
+  const initialAuthCode = initialParams.get("authError");
+  const initialAuthTab = initialParams.get("auth");
+  const [open, setOpen] = useState(
+    !!initialAuthCode || initialAuthTab === "login" || initialAuthTab === "signup",
   );
-  const [open, setOpen] = useState(!!initialAuthCode);
-  const [defaultTab, setDefaultTab] = useState<"login" | "signup">("login");
+  const [defaultTab, setDefaultTab] = useState<"login" | "signup">(
+    initialAuthTab === "signup" ? "signup" : "login",
+  );
   const [authError, setAuthError] = useState(
     initialAuthCode
       ? (AUTH_ERROR_MESSAGES[initialAuthCode] ?? AUTH_ERROR_MESSAGES.google_failed)
       : "",
   );
 
-  // Strip the param so a refresh doesn't reopen the modal. History API (not
+  // Strip the params so a refresh doesn't reopen the modal. History API (not
   // setSearchParams) so there's no state update inside the effect.
   useEffect(() => {
-    if (!initialAuthCode) return;
+    if (!initialAuthCode && !initialAuthTab) return;
     const url = new URL(window.location.href);
     url.searchParams.delete("authError");
+    url.searchParams.delete("auth");
     window.history.replaceState({}, "", url);
-  }, [initialAuthCode]);
+  }, [initialAuthCode, initialAuthTab]);
 
   return (
     <main
@@ -277,8 +287,8 @@ export default function Landing() {
           <FullLogo />
           {/** Nav Buttons */}
           <div className="flex items-center justify-between pr-24">
-            {NAV_LINKS.map((link) => (
-              <NavLink key={link} label={link} />
+            {MARKETING_NAV_LINKS.map((link) => (
+              <NavLink key={link.to} label={link.label} to={link.to} />
             ))}
           </div>
           {/** Launch Buttons */}
@@ -368,7 +378,8 @@ export default function Landing() {
             >
               Start for free
             </button>
-            <button
+            <Link
+              to="/features"
               className={`
                 text-brand-text
                 text-sm font-semibold
@@ -379,7 +390,7 @@ export default function Landing() {
               `}
             >
               See how it works →
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -505,8 +516,8 @@ export default function Landing() {
             <LogoText />
           </div>
           <div className="flex items-center justify-center gap-32 text-sm">
-            {FOOTER_LINKS.map((link) => (
-              <NavLink key={link} label={link} />
+            {MARKETING_FOOTER_LINKS.map((link) => (
+              <NavLink key={link.to} label={link.label} to={link.to} />
             ))}
           </div>
           <div className="text-sm text-right">

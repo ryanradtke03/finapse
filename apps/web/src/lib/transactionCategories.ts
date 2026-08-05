@@ -271,6 +271,51 @@ export function isCustomCategory(value: string): boolean {
   return value.startsWith(`${CUSTOM_PREFIX}_`);
 }
 
+// Broad (Plaid primary) category → friendly group label, mirroring the Budgets
+// groupings. Used by the grouped category filter so "Food & Drink" covers
+// groceries, dining, coffee, etc.
+const PRIMARY_LABELS: Record<string, string> = {
+  FOOD_AND_DRINK: "Food & Drink",
+  GENERAL_MERCHANDISE: "Shopping",
+  TRANSPORTATION: "Transportation",
+  TRAVEL: "Travel",
+  RENT_AND_UTILITIES: "Rent & Utilities",
+  ENTERTAINMENT: "Entertainment",
+  MEDICAL: "Medical",
+  PERSONAL_CARE: "Personal Care",
+  HOME_IMPROVEMENT: "Home Improvement",
+  GENERAL_SERVICES: "Services",
+  BANK_FEES: "Bank Fees",
+  LOAN_PAYMENTS: "Loan Payments",
+  GOVERNMENT_AND_NON_PROFIT: "Government & Donations",
+  INCOME: "Income",
+  TRANSFER_IN: "Transfers In",
+  TRANSFER_OUT: "Transfers Out",
+  LOAN_DISBURSEMENTS: "Loan Disbursements",
+};
+
+// The broad primary bucket a detailed category belongs to (e.g.
+// FOOD_AND_DRINK_COFFEE → FOOD_AND_DRINK). Returns null for values outside
+// Plaid's taxonomy — custom categories, the SUBSCRIPTION heuristic, and
+// UNCATEGORIZED — so callers can bucket those separately.
+export function getPrimaryCategory(value: string): string | null {
+  if (
+    isCustomCategory(value) ||
+    value === "SUBSCRIPTION" ||
+    value === "UNCATEGORIZED"
+  ) {
+    return null;
+  }
+  const prefix = PRIMARY_PREFIXES.find(
+    (p) => p !== "OTHER" && (value === p || value.startsWith(`${p}_`)),
+  );
+  return prefix ?? null;
+}
+
+export function getPrimaryCategoryLabel(primary: string): string {
+  return PRIMARY_LABELS[primary] ?? getTransactionCategoryLabel(primary);
+}
+
 // Effective category for a transaction: an explicit user override always
 // wins (that's the point of Recategorize), then the recurring/subscription
 // heuristic, then Plaid's detailed category, then its primary category.

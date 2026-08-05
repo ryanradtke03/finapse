@@ -9,7 +9,7 @@ import { useSearchParams } from "react-router-dom";
  * Transactions page's multi-select; everything else is single-valued.
  */
 export interface TransactionFilterValues {
-  accountId?: string;
+  accountId?: string[];
   category?: string[];
   search?: string;
   startDate?: string;
@@ -23,13 +23,7 @@ export type TransactionFilterUpdates = {
   [K in keyof TransactionFilterValues]?: TransactionFilterValues[K] | null;
 };
 
-const SINGLE_KEYS = [
-  "accountId",
-  "search",
-  "startDate",
-  "endDate",
-  "range",
-] as const;
+const SINGLE_KEYS = ["search", "startDate", "endDate", "range"] as const;
 
 export function useTransactionFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,13 +37,18 @@ export function useTransactionFilters() {
       const value = searchParams.get(key);
       if (value) next[key] = value;
     }
+    const accountIds = searchParams.getAll("accountId").filter(Boolean);
+    if (accountIds.length > 0) next.accountId = accountIds;
     const categories = searchParams.getAll("category").filter(Boolean);
     if (categories.length > 0) next.category = categories;
     return next;
   }, [searchParams]);
 
   const setFilters = useCallback(
-    (updates: TransactionFilterUpdates) => {
+    (
+      updates: TransactionFilterUpdates,
+      opts?: { history?: "push" | "replace" },
+    ) => {
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
@@ -67,9 +66,11 @@ export function useTransactionFilters() {
           }
           return params;
         },
-        // Filter changes replace history rather than stacking an entry per
-        // keystroke; back still returns to the pre-filter view.
-        { replace: true },
+        // Default: replace history so a filter tweak (or search keystroke)
+        // doesn't stack an entry. Discrete drill-downs (clicking a chart day or
+        // category) pass history: "push" so the browser Back button steps out
+        // of them one at a time.
+        { replace: opts?.history !== "push" },
       );
     },
     [setSearchParams],
