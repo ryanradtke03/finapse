@@ -54,6 +54,29 @@ function formatMoney(value: number): string {
   return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+// Compact money for tight spots like the category legend (no cents).
+function compactMoney(value: number): string {
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
+// "2026-07-06" → "Jul 6" (parsed as local midnight to avoid an off-by-one day).
+function shortDate(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// A single account's contribution to total balance. Credit-card and loan
+// balances are money *owed*, so they subtract; everything else (checking,
+// savings, investments) adds. Null balances count as 0.
+function signedBalance(a: { type: string; balanceCurrent: string | null }): number {
+  if (a.balanceCurrent == null) return 0;
+  const bal = Number(a.balanceCurrent);
+  const t = a.type.toLowerCase();
+  return t === "credit" || t === "loan" ? -bal : bal;
+}
+
 function ChartTooltip({
   active,
   payload,
@@ -66,7 +89,9 @@ function ChartTooltip({
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-brand-border bg-brand-surface-raised px-3 py-2 text-xs shadow-xl">
-      <p className="mb-1 text-brand-text-secondary">Day {label}</p>
+      <p className="mb-1 text-brand-text-secondary">
+        {label ? shortDate(label) : ""}
+      </p>
       {payload.map((row) => (
         <p key={row.dataKey} className="text-brand-text">
           {row.dataKey === "spending" ? "Spending" : "Income"}:{" "}
@@ -143,6 +168,29 @@ export default function Dashboard() {
   const prevIncome = prevSummary.data?.totalIncome ?? 0;
   const prevNet = prevIncome - prevSpent;
 
+  // Point-in-time balance across accounts, respecting the Account filter.
+  // Net of credit-card / loan debt (see signedBalance).
+  const balanceAccounts = filters.accountId
+    ? accounts.filter((a) => a.id === filters.accountId)
+    : accounts;
+  const totalBalance = balanceAccounts.reduce((s, a) => s + signedBalance(a), 0);
+  const selectedAccount = filters.accountId
+    ? accounts.find((a) => a.id === filters.accountId)
+    : undefined;
+  const hasDebt = balanceAccounts.some((a) => {
+    const t = a.type.toLowerCase();
+    return (
+      (t === "credit" || t === "loan") &&
+      a.balanceCurrent != null &&
+      Number(a.balanceCurrent) !== 0
+    );
+  });
+  const balanceSubtitle = selectedAccount
+    ? `${selectedAccount.name}${selectedAccount.mask ? ` ··${selectedAccount.mask}` : ""}`
+    : `across ${balanceAccounts.length} account${balanceAccounts.length === 1 ? "" : "s"}${
+        hasDebt ? " · net of card & loan balances" : ""
+      }`;
+
   const days =
     filters.startDate && filters.endDate
       ? Math.max(
@@ -153,16 +201,34 @@ export default function Dashboard() {
         )
       : 30;
 
-  const chartData = useMemo(
-    () =>
-      (summary.data?.byDay ?? []).map((d) => ({
+  // Fill every day in the selected range (not just days that had activity) so
+  // the x-axis is a continuous, evenly-spaced timeline instead of a sparse,
+  // jumpy one. Days with no transactions render as zero-height bars.
+  const chartData = useMemo(() => {
+    const byDate = new Map(
+      (summary.data?.byDay ?? []).map((d) => [d.date, d]),
+    );
+    const start = filters.startDate;
+    const end = filters.endDate;
+    if (!start || !end) {
+      return (summary.data?.byDay ?? []).map((d) => ({
         date: d.date,
-        day: Number(d.date.slice(8, 10)),
         spending: d.spending,
         income: d.income,
-      })),
-    [summary.data],
-  );
+      }));
+    }
+    const out: { date: string; spending: number; income: number }[] = [];
+    for (let t = Date.parse(start); t <= Date.parse(end); t += 86400000) {
+      const iso = new Date(t).toISOString().slice(0, 10);
+      const row = byDate.get(iso);
+      out.push({
+        date: iso,
+        spending: row?.spending ?? 0,
+        income: row?.income ?? 0,
+      });
+    }
+    return out;
+  }, [summary.data, filters.startDate, filters.endDate]);
 
   const maxSpendDate = useMemo(() => {
     if (chartData.length === 0) return null;
@@ -249,6 +315,24 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* total balance — point-in-time, respects the account filter */}
+      <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
+        <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
+          Total balance
+        </p>
+        <p
+          className={`mt-1 text-3xl font-bold ${
+            totalBalance < 0 ? "text-brand-error" : "text-brand-text"
+          }`}
+        >
+          {totalBalance < 0 ? "-" : ""}
+          {formatMoney(Math.abs(totalBalance))}
+        </p>
+        <p className="mt-1 text-xs text-brand-text-secondary">
+          {balanceSubtitle}
+        </p>
+      </div>
+
       {/* summary strip */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
@@ -333,17 +417,13 @@ export default function Dashboard() {
                   stroke="var(--color-brand-border-subtle)"
                 />
                 <XAxis
-                  dataKey="day"
+                  dataKey="date"
                   tickLine={false}
                   axisLine={false}
                   tick={{ fill: "#777777", fontSize: 11 }}
-                  label={{
-                    value: "Day of month",
-                    position: "insideBottom",
-                    offset: -5,
-                    fill: "#777777",
-                    fontSize: 11,
-                  }}
+                  tickFormatter={shortDate}
+                  interval={Math.max(0, Math.ceil(chartData.length / 8) - 1)}
+                  minTickGap={12}
                 />
                 <YAxis
                   tickLine={false}
@@ -431,8 +511,13 @@ export default function Dashboard() {
                       />
                       <span className="truncate">{d.label}</span>
                     </span>
-                    <span className="shrink-0 text-brand-text-secondary">
-                      {spent > 0 ? Math.round((d.value / spent) * 100) : 0}%
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="font-medium text-brand-text">
+                        {compactMoney(d.value)}
+                      </span>
+                      <span className="w-7 text-right text-brand-text-secondary">
+                        {spent > 0 ? Math.round((d.value / spent) * 100) : 0}%
+                      </span>
                     </span>
                   </div>
                 ))}
