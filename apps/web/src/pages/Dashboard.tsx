@@ -14,18 +14,32 @@ import {
 import { Link } from "react-router-dom";
 import type { TransactionFilters } from "../api/transactions";
 import { Dropdown } from "../components/ui/Dropdown";
-import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
-import { TIME_FRAME_OPTIONS, presetRange } from "../lib/dateRanges";
+import { CategoryFilterDropdown } from "../components/ui/CategoryFilterDropdown";
+import { presetRange } from "../lib/dateRanges";
+import {
+  DateRangeControl,
+  type DateRangeValue,
+} from "../components/ui/DateRangeControl";
 import { useItems } from "../hooks/useItems";
 import {
+  useTransaction,
   useTransactionCategories,
   useTransactions,
   useTransactionSummary,
+  useUpdateTransaction,
+  useDeleteTransaction,
 } from "../hooks/useTransactions";
+import { useBudgets } from "../hooks/useBudgets";
+import {
+  TransactionDetailPanel,
+  type TransactionEditPatch,
+} from "../components/TransactionDetailPanel";
 import {
   getEffectiveCategory,
   getTransactionCategoryColor,
   getTransactionCategoryLabel,
+  isCustomCategory,
+  TRANSACTION_CATEGORY_OPTIONS,
 } from "../lib/transactionCategories";
 
 // same-length window immediately preceding the current one, for "vs last period"
@@ -123,14 +137,23 @@ export default function Dashboard() {
   const [filters, setFilters] = useState<TransactionFilters>(
     presetRange("30d"),
   );
-  const [timeFrame, setTimeFrame] = useState("30d");
+  // Active preset key (e.g. "30d"), or undefined when a custom/clicked range
+  // is in effect. The resolved start/end always live in `filters`.
+  const [rangeKey, setRangeKey] = useState<string | undefined>("30d");
   // Income shown by default on the time-series chart (FIN-109); the legend
   // still toggles it off.
   const [showIncome, setShowIncome] = useState(true);
 
+  // Selected recent transaction → opens the detail panel (same as Transactions).
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+
   const items = useItems();
   const summary = useTransactionSummary(filters);
   const list = useTransactions({ ...filters, limit: 10 });
+  const detail = useTransaction(selectedId);
+  const budgetsQuery = useBudgets();
+  const updateMutation = useUpdateTransaction();
+  const deleteMutation = useDeleteTransaction();
 
   // Full distinct-category list for the filter dropdown (same source the
   // Transactions page uses) so options aren't limited to categories that
@@ -148,6 +171,42 @@ export default function Dashboard() {
 
   const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
 
+  // For the detail panel: resolve an account id → its bank + mask.
+  const accountLookup = useMemo(() => {
+    const map = new Map<string, { institutionName: string; mask: string | null }>();
+    for (const item of items.data ?? []) {
+      for (const a of item.accounts) {
+        map.set(a.id, {
+          institutionName: item.institutionName ?? "Bank",
+          mask: a.mask,
+        });
+      }
+    }
+    return map;
+  }, [items.data]);
+
+  // Custom categories the user already uses (on transactions or budgets), for
+  // reuse in the panel's recategorize picker (FIN-90).
+  const customCategories = Array.from(
+    new Set(
+      [
+        ...(categoriesQuery.data ?? []),
+        ...(budgetsQuery.data ?? []).map((b) => b.category),
+      ].filter(isCustomCategory),
+    ),
+  ).map((value) => ({ value, label: getTransactionCategoryLabel(value) }));
+
+  const handleSaveTransaction = async (patch: TransactionEditPatch) => {
+    if (!selectedId) return;
+    await updateMutation.mutateAsync({ id: selectedId, patch });
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!selectedId) return;
+    await deleteMutation.mutateAsync(selectedId);
+    setSelectedId(undefined);
+  };
+
   function setFilter<K extends keyof TransactionFilters>(
     key: K,
     value: TransactionFilters[K],
@@ -155,9 +214,31 @@ export default function Dashboard() {
     setFilters((prev) => ({ ...prev, [key]: value || undefined }));
   }
 
-  function applyPreset(preset: string) {
-    setTimeFrame(preset);
-    setFilters((prev) => ({ ...prev, ...presetRange(preset) }));
+  function handleDateChange(v: DateRangeValue) {
+    if (v.range) {
+      setRangeKey(v.range);
+      setFilters((prev) => ({ ...prev, ...presetRange(v.range) }));
+    } else {
+      setRangeKey(undefined);
+      setFilters((prev) => ({
+        ...prev,
+        startDate: v.startDate,
+        endDate: v.endDate,
+      }));
+    }
+  }
+
+  // Clicking a day in the chart narrows the whole dashboard to that single day.
+  function selectDay(date: string) {
+    setRangeKey(undefined);
+    setFilters((prev) => ({ ...prev, startDate: date, endDate: date }));
+  }
+
+  // Reset every filter back to the default view (last 30 days, all accounts,
+  // all categories).
+  function clearFilters() {
+    setRangeKey("30d");
+    setFilters(presetRange("30d"));
   }
 
   const spent = summary.data?.totalSpent ?? 0;
@@ -280,6 +361,35 @@ export default function Dashboard() {
       ? [filters.category]
       : [];
 
+  // Human label for the currently-scoped range, shown next to "Recent
+  // transactions" so it's obvious the list reflects the filter/clicked day.
+  const scopeLabel =
+    filters.startDate && filters.endDate
+      ? filters.startDate === filters.endDate
+        ? shortDate(filters.startDate)
+        : `${shortDate(filters.startDate)} – ${shortDate(filters.endDate)}`
+      : null;
+
+  // "View all" should open the Transactions page pre-filtered to the same
+  // scope (date range / clicked day, account, categories).
+  const viewAllHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (rangeKey) {
+      params.set("range", rangeKey);
+    } else {
+      if (filters.startDate) params.set("startDate", filters.startDate);
+      if (filters.endDate) params.set("endDate", filters.endDate);
+    }
+    if (filters.accountId) params.set("accountId", filters.accountId);
+    for (const c of selectedCategories) params.append("category", c);
+    const qs = params.toString();
+    return qs ? `/transactions?${qs}` : "/transactions";
+  }, [rangeKey, filters, selectedCategories]);
+
+  // Anything other than the default 30-day / all-accounts / all-categories view.
+  const dashboardFilterActive =
+    rangeKey !== "30d" || !!filters.accountId || selectedCategories.length > 0;
+
   return (
     <div className="flex flex-col gap-5">
       {/* filters */}
@@ -292,14 +402,17 @@ export default function Dashboard() {
             onChange={(v) => setFilter("accountId", v)}
             className="w-48"
           />
-          <Dropdown
+          <DateRangeControl
             label="Time frame"
-            value={timeFrame}
-            options={TIME_FRAME_OPTIONS}
-            onChange={applyPreset}
-            className="w-44"
+            value={{
+              range: rangeKey,
+              startDate: filters.startDate,
+              endDate: filters.endDate,
+            }}
+            onChange={handleDateChange}
+            className="w-56"
           />
-          <MultiSelectDropdown
+          <CategoryFilterDropdown
             label="Categories"
             values={selectedCategories}
             options={categoryOptions}
@@ -312,6 +425,17 @@ export default function Dashboard() {
             allLabel="All Categories"
             className="w-44"
           />
+          {dashboardFilterActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              title="Reset to the default view"
+              className="flex items-center gap-1.5 self-stretch rounded-xl border border-brand-border-subtle px-4 text-sm font-medium text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text"
+            >
+              Clear filters
+              <span className="text-base leading-none">×</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -411,7 +535,14 @@ export default function Dashboard() {
             </p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData}>
+              <BarChart
+                data={chartData}
+                className="cursor-pointer"
+                onClick={(state) => {
+                  const date = (state as { activeLabel?: string })?.activeLabel;
+                  if (typeof date === "string") selectDay(date);
+                }}
+              >
                 <CartesianGrid
                   vertical={false}
                   stroke="var(--color-brand-border-subtle)"
@@ -436,7 +567,15 @@ export default function Dashboard() {
                   content={<ChartTooltip />}
                   cursor={{ fill: "var(--color-brand-border-subtle)" }}
                 />
-                <Bar dataKey="spending" radius={[4, 4, 0, 0]}>
+                <Bar
+                  dataKey="spending"
+                  radius={[4, 4, 0, 0]}
+                  onClick={(data) => {
+                    const dt = (data as { payload?: { date?: string } })
+                      ?.payload?.date;
+                    if (dt) selectDay(dt);
+                  }}
+                >
                   {chartData.map((d) => (
                     <Cell
                       key={d.date}
@@ -451,6 +590,11 @@ export default function Dashboard() {
                     fill="var(--color-brand-text-secondary)"
                     fillOpacity={0.6}
                     radius={[4, 4, 0, 0]}
+                    onClick={(data) => {
+                      const dt = (data as { payload?: { date?: string } })
+                        ?.payload?.date;
+                      if (dt) selectDay(dt);
+                    }}
                   />
                 )}
               </BarChart>
@@ -530,9 +674,16 @@ export default function Dashboard() {
       {/* recent transactions */}
       <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-semibold text-brand-text">Recent transactions</h3>
+          <h3 className="font-semibold text-brand-text">
+            Recent transactions
+            {scopeLabel && (
+              <span className="ml-2 text-sm font-normal text-brand-text-secondary">
+                · {scopeLabel}
+              </span>
+            )}
+          </h3>
           <Link
-            to="/transactions"
+            to={viewAllHref}
             className="text-sm text-brand-green hover:text-brand-green-hover"
           >
             View all
@@ -549,9 +700,13 @@ export default function Dashboard() {
             const amount = Number(t.amount);
             const isIncome = amount < 0;
             return (
-              <div
+              <button
+                type="button"
                 key={t.id}
-                className="flex items-center justify-between border-t border-brand-border-subtle py-3 first:border-0"
+                onClick={() => setSelectedId(t.id)}
+                className={`flex w-full items-center justify-between border-t border-brand-border-subtle py-3 text-left transition-colors duration-100 first:border-0 hover:bg-brand-surface-raised ${
+                  selectedId === t.id ? "bg-brand-surface-raised" : ""
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-surface-raised text-sm font-medium text-brand-text-secondary">
@@ -560,7 +715,8 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm font-medium text-brand-text">{label}</p>
                     <p className="text-xs text-brand-text-secondary">
-                      {getTransactionCategoryLabel(getEffectiveCategory(t))}
+                      {getTransactionCategoryLabel(getEffectiveCategory(t))} ·{" "}
+                      {shortDate(new Date(t.date).toISOString().slice(0, 10))}
                     </p>
                   </div>
                 </div>
@@ -570,11 +726,25 @@ export default function Dashboard() {
                   {isIncome ? "+" : "-"}
                   {formatMoney(Math.abs(amount))}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
+
+      <TransactionDetailPanel
+        open={!!selectedId}
+        transaction={detail.data ?? null}
+        loading={detail.isLoading}
+        account={
+          detail.data ? accountLookup.get(detail.data.accountId) : undefined
+        }
+        categoryOptions={TRANSACTION_CATEGORY_OPTIONS}
+        customCategories={customCategories}
+        onClose={() => setSelectedId(undefined)}
+        onSave={handleSaveTransaction}
+        onDelete={handleDeleteTransaction}
+      />
     </div>
   );
 }

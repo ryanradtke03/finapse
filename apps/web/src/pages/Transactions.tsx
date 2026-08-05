@@ -7,11 +7,12 @@ import {
 } from "../components/TransactionDetailPanel";
 import { CategoryBadge } from "../components/ui/CategoryBadge";
 import { Dropdown } from "../components/ui/Dropdown";
-import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
+import { CategoryFilterDropdown } from "../components/ui/CategoryFilterDropdown";
 import { useBudgets } from "../hooks/useBudgets";
 import { useItems } from "../hooks/useItems";
 import { useTransactionFilters } from "../hooks/useTransactionFilters";
-import { TIME_FRAME_OPTIONS, presetRange } from "../lib/dateRanges";
+import { presetRange } from "../lib/dateRanges";
+import { DateRangeControl } from "../components/ui/DateRangeControl";
 import {
   useCreateTransaction,
   useDeleteTransaction,
@@ -155,6 +156,27 @@ export default function Transactions() {
   const handleCreate = (input: CreateTransactionInput) =>
     createMutation.mutateAsync(input).then(() => undefined);
 
+  const hasActiveFilters = !!(
+    filters.search ||
+    filters.accountId ||
+    filters.range ||
+    filters.startDate ||
+    filters.endDate ||
+    (filters.category && filters.category.length > 0)
+  );
+
+  const clearAllFilters = () => {
+    setFilters({
+      search: null,
+      accountId: null,
+      category: null,
+      range: null,
+      startDate: null,
+      endDate: null,
+    });
+    setSearchInput("");
+  };
+
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -181,14 +203,24 @@ export default function Transactions() {
           onChange={(v) => setFilters({ accountId: v || undefined })}
           className="w-56"
         />
-        <Dropdown
+        <DateRangeControl
           label="Time frame"
-          value={filters.range ?? ""}
-          options={[{ value: "", label: "All time" }, ...TIME_FRAME_OPTIONS]}
-          onChange={(v) => setFilters({ range: v || undefined })}
-          className="w-48"
+          value={{
+            range: filters.range,
+            startDate: filters.startDate,
+            endDate: filters.endDate,
+          }}
+          onChange={(v) =>
+            setFilters({
+              range: v.range ?? null,
+              startDate: v.startDate ?? null,
+              endDate: v.endDate ?? null,
+            })
+          }
+          includeAllTime
+          className="w-56"
         />
-        <MultiSelectDropdown
+        <CategoryFilterDropdown
           label="Categories"
           values={filters.category ?? []}
           options={categoryOptions}
@@ -196,6 +228,17 @@ export default function Transactions() {
           allLabel="All Categories"
           className="w-56"
         />
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            title="Clear all filters"
+            className="flex items-center gap-1.5 self-stretch rounded-xl border border-brand-border-subtle px-4 text-sm font-medium text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text"
+          >
+            Clear filters
+            <span className="text-base leading-none">×</span>
+          </button>
+        )}
         </div>
         <button
           type="button"
