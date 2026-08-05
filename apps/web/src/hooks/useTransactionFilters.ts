@@ -45,7 +45,10 @@ export function useTransactionFilters() {
   }, [searchParams]);
 
   const setFilters = useCallback(
-    (updates: TransactionFilterUpdates) => {
+    (
+      updates: TransactionFilterUpdates,
+      opts?: { history?: "push" | "replace" },
+    ) => {
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
@@ -63,9 +66,11 @@ export function useTransactionFilters() {
           }
           return params;
         },
-        // Filter changes replace history rather than stacking an entry per
-        // keystroke; back still returns to the pre-filter view.
-        { replace: true },
+        // Default: replace history so a filter tweak (or search keystroke)
+        // doesn't stack an entry. Discrete drill-downs (clicking a chart day or
+        // category) pass history: "push" so the browser Back button steps out
+        // of them one at a time.
+        { replace: opts?.history !== "push" },
       );
     },
     [setSearchParams],

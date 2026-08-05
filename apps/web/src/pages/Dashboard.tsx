@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { TransactionFilters } from "../api/transactions";
+import { useTransactionFilters } from "../hooks/useTransactionFilters";
 import {
   TransactionDetailPanel,
   type TransactionEditPatch,
@@ -137,13 +137,27 @@ function DonutTooltip({
 }
 
 export default function Dashboard() {
-  const [filters, setFilters] = useState<TransactionFilters>(
-    presetRange("30d"),
-  );
-  // Active rolling-preset key (e.g. "30d"), or undefined for a period/custom/
-  // clicked range. Defaults to the last 30 days. The resolved start/end always
-  // live in `filters`.
-  const [rangeKey, setRangeKey] = useState<string | undefined>("30d");
+  // Filters live in the URL (like the Transactions page), so views are
+  // bookmarkable and the browser Back button steps out of drill-downs.
+  const { filters, setFilters } = useTransactionFilters();
+
+  // Resolve the active time-frame to concrete dates for the queries. An empty
+  // URL means the default "last 30 days"; an explicit range or custom dates win.
+  const queryFilters = useMemo(() => {
+    const { range, ...rest } = filters;
+    const r = range ?? (!rest.startDate && !rest.endDate ? "30d" : undefined);
+    return r ? { ...rest, ...presetRange(r) } : rest;
+  }, [filters]);
+
+  // What the date control displays: explicit range/dates, or the 30d default.
+  const dateValue: DateRangeValue = {
+    range:
+      filters.range ??
+      (!filters.startDate && !filters.endDate ? "30d" : undefined),
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+  };
+
   // Income shown by default on the time-series chart (FIN-109); the legend
   // still toggles it off.
   const [showIncome, setShowIncome] = useState(true);
@@ -152,8 +166,8 @@ export default function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | undefined>();
 
   const items = useItems();
-  const summary = useTransactionSummary(filters);
-  const list = useTransactions({ ...filters, limit: 10 });
+  const summary = useTransactionSummary(queryFilters);
+  const list = useTransactions({ ...queryFilters, limit: 10 });
   const detail = useTransaction(selectedId);
   const budgetsQuery = useBudgets();
   const updateMutation = useUpdateTransaction();
@@ -165,12 +179,12 @@ export default function Dashboard() {
   const categoriesQuery = useTransactionCategories();
 
   const prevFilters = useMemo(() => {
-    if (!filters.startDate || !filters.endDate) return undefined;
+    if (!queryFilters.startDate || !queryFilters.endDate) return undefined;
     return {
-      ...filters,
-      ...previousRange(filters.startDate, filters.endDate),
+      ...queryFilters,
+      ...previousRange(queryFilters.startDate, queryFilters.endDate),
     };
-  }, [filters]);
+  }, [queryFilters]);
   const prevSummary = useTransactionSummary(prevFilters);
 
   const accounts = items.data?.flatMap((i) => i.accounts) ?? [];
@@ -214,31 +228,45 @@ export default function Dashboard() {
     setSelectedId(undefined);
   };
 
+  // Preset / custom-range / arrow changes — replace history (like a dropdown).
   function handleDateChange(v: DateRangeValue) {
-    if (v.range) {
-      setRangeKey(v.range);
-      setFilters((prev) => ({ ...prev, ...presetRange(v.range) }));
-    } else {
-      setRangeKey(undefined);
-      setFilters((prev) => ({
-        ...prev,
-        startDate: v.startDate,
-        endDate: v.endDate,
-      }));
-    }
+    setFilters({
+      range: v.range ?? null,
+      startDate: v.startDate ?? null,
+      endDate: v.endDate ?? null,
+    });
   }
 
   // Clicking a day in the chart narrows the whole dashboard to that single day.
+  // Pushes history so Back steps out of it.
   function selectDay(date: string) {
-    setRangeKey(undefined);
-    setFilters((prev) => ({ ...prev, startDate: date, endDate: date }));
+    setFilters(
+      { range: null, startDate: date, endDate: date },
+      { history: "push" },
+    );
+  }
+
+  // Clicking a category slice/legend scopes the dashboard to that category
+  // (clicking the active one again clears it). Pushes history.
+  function selectCategory(keys: string[]) {
+    if (keys.length === 0) return;
+    const current = filters.category ?? [];
+    const same =
+      keys.length === current.length && keys.every((k) => current.includes(k));
+    setFilters({ category: same ? null : keys }, { history: "push" });
   }
 
   // Reset every filter back to the default view (last 30 days, all accounts,
   // all categories).
   function clearFilters() {
-    setRangeKey("30d");
-    setFilters(presetRange("30d"));
+    setFilters({
+      range: null,
+      startDate: null,
+      endDate: null,
+      accountId: null,
+      category: null,
+      search: null,
+    });
   }
 
   const spent = summary.data?.totalSpent ?? 0;
@@ -284,11 +312,11 @@ export default function Dashboard() {
       }`;
 
   const days =
-    filters.startDate && filters.endDate
+    queryFilters.startDate && queryFilters.endDate
       ? Math.max(
           1,
-          (new Date(filters.endDate).getTime() -
-            new Date(filters.startDate).getTime()) /
+          (new Date(queryFilters.endDate).getTime() -
+            new Date(queryFilters.startDate).getTime()) /
             86400000,
         )
       : 30;
@@ -298,8 +326,8 @@ export default function Dashboard() {
   // jumpy one. Days with no transactions render as zero-height bars.
   const chartData = useMemo(() => {
     const byDate = new Map((summary.data?.byDay ?? []).map((d) => [d.date, d]));
-    const start = filters.startDate;
-    const end = filters.endDate;
+    const start = queryFilters.startDate;
+    const end = queryFilters.endDate;
     if (!start || !end) {
       return (summary.data?.byDay ?? []).map((d) => ({
         date: d.date,
@@ -333,14 +361,17 @@ export default function Dashboard() {
     const sorted = [...rows].sort((a, b) => b.total - a.total);
     const slices = sorted.slice(0, 6).map((c) => ({
       key: c.category,
+      keys: [c.category],
       label: getTransactionCategoryLabel(c.category),
       value: c.total,
       color: getTransactionCategoryColor(c.category),
     }));
-    const restTotal = sorted.slice(6).reduce((sum, c) => sum + c.total, 0);
+    const rest = sorted.slice(6);
+    const restTotal = rest.reduce((sum, c) => sum + c.total, 0);
     if (restTotal > 0) {
       slices.push({
         key: "__other",
+        keys: rest.map((c) => c.category),
         label: "Other",
         value: restTotal,
         color: "#6b7280",
@@ -371,31 +402,37 @@ export default function Dashboard() {
   // Human label for the currently-scoped range, shown next to "Recent
   // transactions" so it's obvious the list reflects the filter/clicked day.
   const scopeLabel =
-    filters.startDate && filters.endDate
-      ? filters.startDate === filters.endDate
-        ? shortDate(filters.startDate)
-        : `${shortDate(filters.startDate)} – ${shortDate(filters.endDate)}`
+    queryFilters.startDate && queryFilters.endDate
+      ? queryFilters.startDate === queryFilters.endDate
+        ? shortDate(queryFilters.startDate)
+        : `${shortDate(queryFilters.startDate)} – ${shortDate(queryFilters.endDate)}`
       : null;
 
   // "View all" should open the Transactions page pre-filtered to the same
   // scope (date range / clicked day, account, categories).
   const viewAllHref = useMemo(() => {
     const params = new URLSearchParams();
-    if (rangeKey) {
-      params.set("range", rangeKey);
-    } else {
+    if (filters.range) {
+      params.set("range", filters.range);
+    } else if (filters.startDate || filters.endDate) {
       if (filters.startDate) params.set("startDate", filters.startDate);
       if (filters.endDate) params.set("endDate", filters.endDate);
+    } else {
+      params.set("range", "30d"); // default view
     }
     for (const id of selectedAccountIds) params.append("accountId", id);
     for (const c of selectedCategories) params.append("category", c);
     const qs = params.toString();
     return qs ? `/transactions?${qs}` : "/transactions";
-  }, [rangeKey, filters, selectedCategories]);
+  }, [filters, selectedAccountIds, selectedCategories]);
 
   // Anything other than the default 30-day / all-accounts / all-categories view.
+  const dateIsDefault =
+    !filters.startDate &&
+    !filters.endDate &&
+    (!filters.range || filters.range === "30d");
   const dashboardFilterActive =
-    rangeKey !== "30d" ||
+    !dateIsDefault ||
     selectedAccountIds.length > 0 ||
     selectedCategories.length > 0;
 
@@ -409,21 +446,14 @@ export default function Dashboard() {
             values={selectedAccountIds}
             options={accountOptions}
             onChange={(values) =>
-              setFilters((prev) => ({
-                ...prev,
-                accountId: values.length ? values : undefined,
-              }))
+              setFilters({ accountId: values.length ? values : null })
             }
             allLabel="All Accounts"
             className="w-48"
           />
           <DateRangeControl
             label="Time frame"
-            value={{
-              range: rangeKey,
-              startDate: filters.startDate,
-              endDate: filters.endDate,
-            }}
+            value={dateValue}
             onChange={handleDateChange}
             className="w-56"
           />
@@ -432,10 +462,7 @@ export default function Dashboard() {
             values={selectedCategories}
             options={categoryOptions}
             onChange={(values) =>
-              setFilters((prev) => ({
-                ...prev,
-                category: values.length ? values : undefined,
-              }))
+              setFilters({ category: values.length ? values : null })
             }
             allLabel="All Categories"
             className="w-44"
@@ -642,6 +669,10 @@ export default function Dashboard() {
                       outerRadius={72}
                       paddingAngle={2}
                       stroke="none"
+                      className="cursor-pointer"
+                      onClick={(_, index) =>
+                        selectCategory(donutData[index]?.keys ?? [])
+                      }
                     >
                       {donutData.map((d) => (
                         <Cell key={d.key} fill={d.color} />
@@ -660,28 +691,38 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex flex-1 flex-col gap-2">
-                {donutData.map((d) => (
-                  <div
-                    key={d.key}
-                    className="flex items-center justify-between text-xs"
-                  >
-                    <span className="flex min-w-0 items-center gap-2 text-brand-text">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-sm"
-                        style={{ backgroundColor: d.color }}
-                      />
-                      <span className="truncate">{d.label}</span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      <span className="font-medium text-brand-text">
-                        {compactMoney(d.value)}
+                {donutData.map((d) => {
+                  const active =
+                    d.keys.length > 0 &&
+                    d.keys.every((k) => selectedCategories.includes(k)) &&
+                    d.keys.length === selectedCategories.length;
+                  return (
+                    <button
+                      key={d.key}
+                      type="button"
+                      onClick={() => selectCategory(d.keys)}
+                      className={`flex cursor-pointer items-center justify-between rounded-md px-1.5 py-1 text-left text-xs transition-colors duration-100 hover:bg-brand-surface-raised ${
+                        active ? "bg-brand-surface-raised" : ""
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-2 text-brand-text">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-sm"
+                          style={{ backgroundColor: d.color }}
+                        />
+                        <span className="truncate">{d.label}</span>
                       </span>
-                      <span className="w-7 text-right text-brand-text-secondary">
-                        {spent > 0 ? Math.round((d.value / spent) * 100) : 0}%
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="font-medium text-brand-text">
+                          {compactMoney(d.value)}
+                        </span>
+                        <span className="w-7 text-right text-brand-text-secondary">
+                          {spent > 0 ? Math.round((d.value / spent) * 100) : 0}%
+                        </span>
                       </span>
-                    </span>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
