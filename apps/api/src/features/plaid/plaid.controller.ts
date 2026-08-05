@@ -8,6 +8,7 @@ import {
   getItemsService,
   markItemNeedsReauth,
   syncTransactions,
+  updateItemWebhooks,
 } from "./plaid.service";
 import { routeWebhook, verifyPlaidWebhook } from "./plaid.webhook";
 
@@ -92,6 +93,23 @@ export async function backfillTransactionsHandler(
     const { itemId } = req.params;
     const result = await syncTransactions(userId, itemId, { fullResync: true });
     return res.json(result);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// Register the configured PLAID_WEBHOOK_URL on the user's already-connected
+// items so they start receiving webhooks without a relink (backfills items
+// linked before the URL was set). Returns a per-item report.
+export async function updateWebhooksHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.id;
+    const results = await updateItemWebhooks(userId);
+    return res.json({ results });
   } catch (err) {
     return next(err);
   }

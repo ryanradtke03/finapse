@@ -14,9 +14,9 @@ Guidelines for working in this repository.
 
 - One feature per branch
 - Branch name format:
-  - `MEA-<number>-short-description`
+  - `FIN-<number>-short-description`
 
-Example: MEA-7-linter-formatter
+Example: FIN-108-split-plaid-env-config
 
 ## Pull Requests
 
@@ -31,10 +31,10 @@ Example: MEA-7-linter-formatter
 ## Commit Message Style
 
 Examples:
-feat(api): add recipe endpoint
-feat(web): implement meal plan page
+feat(api): add merchant category rules
+feat(web): add transactions list total
 chore(docs): update architecture section
-fix(api): correct validation logic
+fix(api): correct spending aggregation
 
 ## Documentation Rule
 

@@ -1,8 +1,8 @@
 # Documentation
 
-Welcome to the Meal Planner documentation.
+High-level documentation for **Finapse**, a personal finance dashboard that connects to bank accounts via Plaid, syncs transactions, and surfaces spending insights and budgets.
 
-This folder contains high-level system documentation to ensure architecture, API contracts, and development practices evolve alongside features.
+These docs explain architecture, API contracts, and development practices so they evolve alongside features. For setup and a project overview, see the [root README](../README.md).
 
 ## Contents
 
@@ -17,6 +17,7 @@ This folder contains high-level system documentation to ensure architecture, API
 ## Philosophy
 
 Documentation should:
+
 - Explain *why* decisions were made
 - Clarify system boundaries
 - Prevent knowledge loss

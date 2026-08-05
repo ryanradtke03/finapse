@@ -583,6 +583,65 @@ export async function markItemNeedsReauth(itemId: string): Promise<void> {
   });
 }
 
+// Push PLAID_WEBHOOK_URL onto items that were connected before the URL was
+// configured. The webhook is normally registered on the link token at creation
+// time (see createLinkToken), so items linked while PLAID_WEBHOOK_URL was unset
+// have no webhook on Plaid's side and stay silent — the user has to sync them
+// by hand. itemWebhookUpdate registers the URL after the fact, no relink needed.
+// Idempotent: safe to call repeatedly. DISCONNECTED items are skipped (their
+// access token is dead). Returns a per-item result so the caller can report
+// which banks were updated and which failed without aborting the whole batch.
+export type WebhookUpdateResult = {
+  itemId: string;
+  institutionName: string;
+  status: "updated" | "failed";
+  error?: string;
+};
+
+export async function updateItemWebhooks(
+  userId: string,
+): Promise<WebhookUpdateResult[]> {
+  if (!webhookUrl) {
+    throw Object.assign(
+      new Error(
+        "PLAID_WEBHOOK_URL is not set — nothing to register with Plaid.",
+      ),
+      { status: 400 },
+    );
+  }
+
+  const items = await prisma.plaidItem.findMany({
+    where: { userId, status: { not: "DISCONNECTED" } },
+    select: { id: true, accessToken: true, institutionName: true },
+  });
+
+  const results: WebhookUpdateResult[] = [];
+
+  for (const item of items) {
+    try {
+      await plaidClient.itemWebhookUpdate({
+        access_token: decrypt(item.accessToken),
+        webhook: webhookUrl,
+      });
+      results.push({
+        itemId: item.id,
+        institutionName: item.institutionName ?? "Unknown institution",
+        status: "updated",
+      });
+    } catch (err) {
+      console.error("[updateItemWebhooks] failed for item", item.id, err);
+      results.push({
+        itemId: item.id,
+        institutionName: item.institutionName ?? "Unknown institution",
+        status: "failed",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return results;
+}
+
 function mapTransaction(t: PlaidTransaction, accountId: string) {
   const locationParts = [t.location?.city, t.location?.region].filter(
     (part): part is string => !!part,
