@@ -6,6 +6,11 @@ import { useAuth } from "../context/AuthContext";
 import { loginSchema, signupSchema } from "../schemas/auth";
 import logger from "../utils/logger";
 
+// Public demo account (FIN-114). Seeded, pre-verified, and pre-loaded with
+// Plaid Sandbox data so visitors can explore without signing up.
+const DEMO_EMAIL = "demo@finapse.com";
+const DEMO_PASSWORD = "demo1234";
+
 function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
   const handleGoogleLogin = () => {
     window.location.href = googleAuthUrl;
@@ -197,6 +202,23 @@ function LoginForm({
     }
   };
 
+  // One-click into the seeded demo account — fills the fields (so the user sees
+  // what happened) and logs straight in with the demo credentials.
+  const handleDemo = async () => {
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    setEmailError("");
+    setPasswordError("");
+    setLoginError("");
+    try {
+      const res = await login(DEMO_EMAIL, DEMO_PASSWORD);
+      setSession(res.user);
+      navigate("/dashboard");
+    } catch {
+      setLoginError("The demo isn't available right now. Try again shortly.");
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit}>
       <div>
@@ -251,6 +273,13 @@ function LoginForm({
           {loginError}
         </p>
       )}
+      <button
+        type="button"
+        onClick={handleDemo}
+        className="mt-4 w-full rounded-xl bg-brand-green py-2 text-sm font-semibold text-brand-bg cursor-pointer transition-colors duration-200 hover:bg-brand-green-hover"
+      >
+        Try the demo — no signup →
+      </button>
       <FormSubmitOptions type="login" />
       <div className="flex items-center w-full justify-center mt-6">
         <span className="text-xs text-brand-text-secondary">

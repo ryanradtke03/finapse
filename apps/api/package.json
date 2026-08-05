@@ -17,7 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:seed": "prisma db seed",
-    "db:seed:dev": "NODE_ENV=development prisma db seed"
+    "db:seed:dev": "NODE_ENV=development prisma db seed",
+    "db:seed:demo": "SEED_DEMO=true prisma db seed"
   },
   "prisma": {
     "seed": "tsx ./prisma/seed.ts"
