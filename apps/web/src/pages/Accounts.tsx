@@ -8,6 +8,7 @@ import {
   syncTransactions,
 } from "../api/plaid";
 import { ConnectBankButton } from "../components/ConnectBankButton";
+import { DEMO_MODE, SANDBOX_CREDENTIALS } from "../lib/config";
 import { Avatar } from "../components/ui/Avatar";
 import { useItems } from "../hooks/useItems";
 import { invalidateTransactionQueries } from "../hooks/useTransactions";
@@ -187,6 +188,22 @@ export default function Accounts() {
           </span>
         </ConnectBankButton>
       </div>
+
+      {DEMO_MODE && (
+        <div className="mb-6 rounded-xl border border-brand-border-subtle bg-brand-surface p-4 text-sm text-brand-text-secondary">
+          This is a Plaid <span className="text-brand-text">Sandbox</span> demo.
+          To connect a bank, pick any institution and sign in with{" "}
+          <span className="font-mono text-brand-text">
+            {SANDBOX_CREDENTIALS.username}
+          </span>{" "}
+          /{" "}
+          <span className="font-mono text-brand-text">
+            {SANDBOX_CREDENTIALS.password}
+          </span>{" "}
+          (use <span className="font-mono text-brand-text">1234</span> for any
+          code). No real bank data is used.
+        </div>
+      )}
 
       {q.isError && (
         <p className="text-brand-error">
