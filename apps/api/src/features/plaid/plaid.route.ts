@@ -9,7 +9,8 @@ import {
     exchangePublicTokenHandler,
     getItems,
     plaidWebhookHandler,
-    syncTransactionsHandler
+    syncTransactionsHandler,
+    updateWebhooksHandler
 } from "./plaid.controller";
 
 const router = Router();
@@ -18,6 +19,7 @@ router.post("/create-link-token",          requireAuth, requireVerifiedEmail, cr
 router.post("/exchange-token",             requireAuth, requireVerifiedEmail, exchangePublicTokenHandler);
 router.post("/sync/:itemId",               requireAuth, syncTransactionsHandler);
 router.post("/backfill/:itemId",           requireAuth, backfillTransactionsHandler);
+router.post("/update-webhooks",            requireAuth, updateWebhooksHandler);
 // Plaid calls this directly — no auth; trust comes from signature verification.
 router.post("/webhook",                    plaidWebhookHandler);
 router.get("/item" , requireAuth, getItems);
