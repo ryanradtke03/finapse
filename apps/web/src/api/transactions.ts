@@ -2,10 +2,9 @@ import type { Transaction } from "@finapse/types";
 import { apiBaseUrl } from "./index";
 
 export interface TransactionFilters {
-  accountId?: string;
-  // Accepts a single value (Dashboard's single-select) or several
-  // (Transactions page's multi-select) — either way each entry is sent as
-  // its own repeated `category` query param.
+  // Single value or several — each entry is sent as its own repeated query
+  // param (matches the multi-select account/category filters).
+  accountId?: string | string[];
   category?: string | string[];
   search?: string;
   startDate?: string;
@@ -100,7 +99,7 @@ export const deleteTransaction = async (id: string): Promise<void> => {
 };
 
 export interface SummaryFilters {
-  accountId?: string;
+  accountId?: string | string[];
   startDate?: string;
   endDate?: string;
   // Single value (legacy) or several (Dashboard multi-select) — each entry is

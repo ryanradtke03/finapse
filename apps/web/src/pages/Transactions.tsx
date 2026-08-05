@@ -6,7 +6,7 @@ import {
   type TransactionEditPatch,
 } from "../components/TransactionDetailPanel";
 import { CategoryBadge } from "../components/ui/CategoryBadge";
-import { Dropdown } from "../components/ui/Dropdown";
+import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
 import { CategoryFilterDropdown } from "../components/ui/CategoryFilterDropdown";
 import { useBudgets } from "../hooks/useBudgets";
 import { useItems } from "../hooks/useItems";
@@ -158,7 +158,7 @@ export default function Transactions() {
 
   const hasActiveFilters = !!(
     filters.search ||
-    filters.accountId ||
+    (filters.accountId && filters.accountId.length > 0) ||
     filters.range ||
     filters.startDate ||
     filters.endDate ||
@@ -190,17 +190,15 @@ export default function Transactions() {
             className="w-full bg-transparent text-sm text-brand-text placeholder:text-brand-text-secondary focus:outline-none"
           />
         </div>
-        <Dropdown
+        <MultiSelectDropdown
           label="Account"
-          value={filters.accountId ?? ""}
-          options={[
-            { value: "", label: "All Accounts" },
-            ...accounts.map((a) => ({
-              value: a.id,
-              label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
-            })),
-          ]}
-          onChange={(v) => setFilters({ accountId: v || undefined })}
+          values={filters.accountId ?? []}
+          options={accounts.map((a) => ({
+            value: a.id,
+            label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
+          }))}
+          onChange={(values) => setFilters({ accountId: values })}
+          allLabel="All Accounts"
           className="w-56"
         />
         <DateRangeControl

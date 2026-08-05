@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -11,29 +12,28 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Link } from "react-router-dom";
 import type { TransactionFilters } from "../api/transactions";
-import { Dropdown } from "../components/ui/Dropdown";
+import {
+  TransactionDetailPanel,
+  type TransactionEditPatch,
+} from "../components/TransactionDetailPanel";
 import { CategoryFilterDropdown } from "../components/ui/CategoryFilterDropdown";
-import { presetRange } from "../lib/dateRanges";
 import {
   DateRangeControl,
   type DateRangeValue,
 } from "../components/ui/DateRangeControl";
+import { MultiSelectDropdown } from "../components/ui/MultiSelectDropdown";
+import { useBudgets } from "../hooks/useBudgets";
 import { useItems } from "../hooks/useItems";
 import {
+  useDeleteTransaction,
   useTransaction,
   useTransactionCategories,
   useTransactions,
   useTransactionSummary,
   useUpdateTransaction,
-  useDeleteTransaction,
 } from "../hooks/useTransactions";
-import { useBudgets } from "../hooks/useBudgets";
-import {
-  TransactionDetailPanel,
-  type TransactionEditPatch,
-} from "../components/TransactionDetailPanel";
+import { presetRange } from "../lib/dateRanges";
 import {
   getEffectiveCategory,
   getTransactionCategoryColor,
@@ -84,7 +84,10 @@ function shortDate(iso: string): string {
 // A single account's contribution to total balance. Credit-card and loan
 // balances are money *owed*, so they subtract; everything else (checking,
 // savings, investments) adds. Null balances count as 0.
-function signedBalance(a: { type: string; balanceCurrent: string | null }): number {
+function signedBalance(a: {
+  type: string;
+  balanceCurrent: string | null;
+}): number {
   if (a.balanceCurrent == null) return 0;
   const bal = Number(a.balanceCurrent);
   const t = a.type.toLowerCase();
@@ -137,8 +140,9 @@ export default function Dashboard() {
   const [filters, setFilters] = useState<TransactionFilters>(
     presetRange("30d"),
   );
-  // Active preset key (e.g. "30d"), or undefined when a custom/clicked range
-  // is in effect. The resolved start/end always live in `filters`.
+  // Active rolling-preset key (e.g. "30d"), or undefined for a period/custom/
+  // clicked range. Defaults to the last 30 days. The resolved start/end always
+  // live in `filters`.
   const [rangeKey, setRangeKey] = useState<string | undefined>("30d");
   // Income shown by default on the time-series chart (FIN-109); the legend
   // still toggles it off.
@@ -173,7 +177,10 @@ export default function Dashboard() {
 
   // For the detail panel: resolve an account id → its bank + mask.
   const accountLookup = useMemo(() => {
-    const map = new Map<string, { institutionName: string; mask: string | null }>();
+    const map = new Map<
+      string,
+      { institutionName: string; mask: string | null }
+    >();
     for (const item of items.data ?? []) {
       for (const a of item.accounts) {
         map.set(a.id, {
@@ -206,13 +213,6 @@ export default function Dashboard() {
     await deleteMutation.mutateAsync(selectedId);
     setSelectedId(undefined);
   };
-
-  function setFilter<K extends keyof TransactionFilters>(
-    key: K,
-    value: TransactionFilters[K],
-  ) {
-    setFilters((prev) => ({ ...prev, [key]: value || undefined }));
-  }
 
   function handleDateChange(v: DateRangeValue) {
     if (v.range) {
@@ -249,15 +249,22 @@ export default function Dashboard() {
   const prevIncome = prevSummary.data?.totalIncome ?? 0;
   const prevNet = prevIncome - prevSpent;
 
+  // Normalize the (multi-select) account filter to an id list.
+  const selectedAccountIds = Array.isArray(filters.accountId)
+    ? filters.accountId
+    : filters.accountId
+      ? [filters.accountId]
+      : [];
+
   // Point-in-time balance across accounts, respecting the Account filter.
   // Net of credit-card / loan debt (see signedBalance).
-  const balanceAccounts = filters.accountId
-    ? accounts.filter((a) => a.id === filters.accountId)
+  const balanceAccounts = selectedAccountIds.length
+    ? accounts.filter((a) => selectedAccountIds.includes(a.id))
     : accounts;
-  const totalBalance = balanceAccounts.reduce((s, a) => s + signedBalance(a), 0);
-  const selectedAccount = filters.accountId
-    ? accounts.find((a) => a.id === filters.accountId)
-    : undefined;
+  const totalBalance = balanceAccounts.reduce(
+    (s, a) => s + signedBalance(a),
+    0,
+  );
   const hasDebt = balanceAccounts.some((a) => {
     const t = a.type.toLowerCase();
     return (
@@ -266,8 +273,12 @@ export default function Dashboard() {
       Number(a.balanceCurrent) !== 0
     );
   });
-  const balanceSubtitle = selectedAccount
-    ? `${selectedAccount.name}${selectedAccount.mask ? ` ··${selectedAccount.mask}` : ""}`
+  const soleAccount =
+    selectedAccountIds.length === 1
+      ? accounts.find((a) => a.id === selectedAccountIds[0])
+      : undefined;
+  const balanceSubtitle = soleAccount
+    ? `${soleAccount.name}${soleAccount.mask ? ` ··${soleAccount.mask}` : ""}`
     : `across ${balanceAccounts.length} account${balanceAccounts.length === 1 ? "" : "s"}${
         hasDebt ? " · net of card & loan balances" : ""
       }`;
@@ -286,9 +297,7 @@ export default function Dashboard() {
   // the x-axis is a continuous, evenly-spaced timeline instead of a sparse,
   // jumpy one. Days with no transactions render as zero-height bars.
   const chartData = useMemo(() => {
-    const byDate = new Map(
-      (summary.data?.byDay ?? []).map((d) => [d.date, d]),
-    );
+    const byDate = new Map((summary.data?.byDay ?? []).map((d) => [d.date, d]));
     const start = filters.startDate;
     const end = filters.endDate;
     if (!start || !end) {
@@ -313,7 +322,8 @@ export default function Dashboard() {
 
   const maxSpendDate = useMemo(() => {
     if (chartData.length === 0) return null;
-    return chartData.reduce((max, d) => (d.spending > max.spending ? d : max)).date;
+    return chartData.reduce((max, d) => (d.spending > max.spending ? d : max))
+      .date;
   }, [chartData]);
 
   // Spending-by-category donut: top 6 slices, everything else folded into
@@ -339,13 +349,10 @@ export default function Dashboard() {
     return slices;
   }, [summary.data]);
 
-  const accountOptions = [
-    { value: "", label: "All Accounts" },
-    ...accounts.map((a) => ({
-      value: a.id,
-      label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
-    })),
-  ];
+  const accountOptions = accounts.map((a) => ({
+    value: a.id,
+    label: `${a.name}${a.mask ? ` ··${a.mask}` : ""}`,
+  }));
 
   const categoryOptions = (categoriesQuery.data ?? []).map((value) => ({
     value,
@@ -380,7 +387,7 @@ export default function Dashboard() {
       if (filters.startDate) params.set("startDate", filters.startDate);
       if (filters.endDate) params.set("endDate", filters.endDate);
     }
-    if (filters.accountId) params.set("accountId", filters.accountId);
+    for (const id of selectedAccountIds) params.append("accountId", id);
     for (const c of selectedCategories) params.append("category", c);
     const qs = params.toString();
     return qs ? `/transactions?${qs}` : "/transactions";
@@ -388,18 +395,26 @@ export default function Dashboard() {
 
   // Anything other than the default 30-day / all-accounts / all-categories view.
   const dashboardFilterActive =
-    rangeKey !== "30d" || !!filters.accountId || selectedCategories.length > 0;
+    rangeKey !== "30d" ||
+    selectedAccountIds.length > 0 ||
+    selectedCategories.length > 0;
 
   return (
     <div className="flex flex-col gap-5">
       {/* filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-3">
-          <Dropdown
+          <MultiSelectDropdown
             label="Account"
-            value={filters.accountId ?? ""}
+            values={selectedAccountIds}
             options={accountOptions}
-            onChange={(v) => setFilter("accountId", v)}
+            onChange={(values) =>
+              setFilters((prev) => ({
+                ...prev,
+                accountId: values.length ? values : undefined,
+              }))
+            }
+            allLabel="All Accounts"
             className="w-48"
           />
           <DateRangeControl
@@ -510,7 +525,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-[1.6fr_1fr] gap-4">
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-semibold text-brand-text">Spending over time</h3>
+            <h3 className="font-semibold text-brand-text">
+              Spending over time
+            </h3>
             <div className="flex items-center gap-4 text-xs text-brand-text-secondary">
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-brand-green" />
@@ -675,7 +692,7 @@ export default function Dashboard() {
       <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-brand-text">
-            Recent transactions
+            Transactions
             {scopeLabel && (
               <span className="ml-2 text-sm font-normal text-brand-text-secondary">
                 · {scopeLabel}
@@ -713,7 +730,9 @@ export default function Dashboard() {
                     {label.charAt(0).toUpperCase()}
                   </span>
                   <div>
-                    <p className="text-sm font-medium text-brand-text">{label}</p>
+                    <p className="text-sm font-medium text-brand-text">
+                      {label}
+                    </p>
                     <p className="text-xs text-brand-text-secondary">
                       {getTransactionCategoryLabel(getEffectiveCategory(t))} ·{" "}
                       {shortDate(new Date(t.date).toISOString().slice(0, 10))}
