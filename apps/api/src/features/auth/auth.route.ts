@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/requireAuth";
 import { authLimiter, emailLimiter } from "../../middleware/rateLimit";
+import { blockInDemoMode } from "../../middleware/demoGuard";
 import {
   changePassword,
   deleteAccount,
@@ -19,21 +20,24 @@ import {
 
 const router = Router();
 
-router.post("/register", authLimiter, register);
+// blockInDemoMode: disabled on the public demo so a visitor can't spam signups
+// or break the shared demo account (delete it, change its password, etc.).
+router.post("/register", blockInDemoMode, authLimiter, register);
 router.post("/login", authLimiter, login);
 router.get("/me", requireAuth, me);
 router.put("/me", requireAuth, updateProfile);
 router.post("/logout", logout);
-router.put("/password", authLimiter, requireAuth, changePassword);
-router.delete("/me", requireAuth, deleteAccount);
+router.put("/password", blockInDemoMode, authLimiter, requireAuth, changePassword);
+router.delete("/me", blockInDemoMode, requireAuth, deleteAccount);
 
 // Email verification + password reset (rate-limited; token endpoints are
 // public since the user may be logged out when they click the link).
 router.post("/verify-email", authLimiter, verifyEmailHandler);
 router.post("/resend-verification", emailLimiter, requireAuth, resendVerificationHandler);
-router.post("/forgot-password", emailLimiter, forgotPasswordHandler);
-router.post("/reset-password", authLimiter, resetPasswordHandler);
-router.get("/google", googleAuth);
-router.get("/google/callback", googleAuthCallback);
+router.post("/forgot-password", blockInDemoMode, emailLimiter, forgotPasswordHandler);
+router.post("/reset-password", blockInDemoMode, authLimiter, resetPasswordHandler);
+// Google sign-in creates accounts too, so it's disabled in demo mode.
+router.get("/google", blockInDemoMode, googleAuth);
+router.get("/google/callback", blockInDemoMode, googleAuthCallback);
 
 export default router;

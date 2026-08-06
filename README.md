@@ -2,19 +2,20 @@
 
 A personal finance dashboard that securely connects to your bank accounts (via [Plaid](https://plaid.com)), syncs transactions, and turns them into clear spending insights — categorized transactions, budgets, and a dashboard of where your money actually goes.
 
-Built as a full-stack portfolio project: a TypeScript monorepo with a React front end, an Express/Prisma API, PostgreSQL, JWT + Google OAuth auth, and encrypted-at-rest bank tokens.
+Built as a full-stack project: a TypeScript monorepo with a React front end, an Express/Prisma API, PostgreSQL, JWT + Google OAuth auth, and encrypted-at-rest bank tokens.
 
 > **Note:** This is a personal, single-user project. Production Plaid access runs against real bank data locally; a public demo can run against Plaid's Sandbox with test credentials (`user_good` / `pass_good`).
 
 ## Screenshots
 
 <!-- TODO: drop in real images, e.g. docs/images/dashboard.png -->
+
 ![Dashboard](docs/images/dashboard.png)
 ![Transactions](docs/images/transactions.png)
 
 ## Features
 
-- **Bank connections via Plaid** — link accounts through Plaid Link; access tokens are encrypted at rest (AES-256-GCM).
+- **Bank connections via Plaid** — link accounts through Plaid Link.
 - **Transaction sync** — pulls accounts and transactions, with an optional signed webhook receiver for auto-sync.
 - **Spending dashboard** — spending/income/net totals, spending-by-category breakdown, and a spending-over-time chart. Internal transfers and credit-card payments are excluded so totals reflect real spending, not money moved between your own accounts.
 - **Smart categorization** — Plaid's personal-finance categories, a recurring/subscription heuristic, and per-transaction overrides. Recategorizing a transaction can apply that category to every transaction from the same merchant (past and future).
@@ -23,14 +24,14 @@ Built as a full-stack portfolio project: a TypeScript monorepo with a React fron
 
 ## Tech stack
 
-| Layer      | Tech |
-|------------|------|
-| Front end  | React 19, Vite 7, React Router 7, TanStack Query, Tailwind CSS 4, TypeScript |
-| Back end   | Node.js, Express 4, TypeScript, Zod validation |
-| Database   | PostgreSQL 16, Prisma 7 (ORM + migrations) |
-| Auth       | JWT (HTTP-only cookies), Passport Google OAuth, bcrypt |
-| Banking    | Plaid API (`plaid`, `react-plaid-link`) |
-| Tooling    | npm workspaces, ESLint, Prettier, Vitest |
+| Layer     | Tech                                                                         |
+| --------- | ---------------------------------------------------------------------------- |
+| Front end | React 19, Vite 7, React Router 7, TanStack Query, Tailwind CSS 4, TypeScript |
+| Back end  | Node.js, Express 4, TypeScript, Zod validation                               |
+| Database  | PostgreSQL 16, Prisma 7 (ORM + migrations)                                   |
+| Auth      | JWT (HTTP-only cookies), Passport Google OAuth, bcrypt                       |
+| Banking   | Plaid API (`plaid`, `react-plaid-link`)                                      |
+| Tooling   | npm workspaces, ESLint, Prettier, Vitest                                     |
 
 ## Architecture
 
@@ -115,15 +116,15 @@ Open http://localhost:5173, sign up, and link an account. In Sandbox, use Plaid'
 
 Run from the repo root unless noted.
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev:api` | Start the API with hot reload |
-| `npm run db:up` / `db:down` | Start / stop PostgreSQL (Docker) |
-| `npm run db:reset` | Drop and recreate the database |
-| `npm run lint` | ESLint across all packages |
-| `npm run format` | Prettier |
-| `npm run typecheck` | TypeScript checks across all packages |
-| `npm run test` | Run tests across all packages |
+| Command                     | Description                           |
+| --------------------------- | ------------------------------------- |
+| `npm run dev:api`           | Start the API with hot reload         |
+| `npm run db:up` / `db:down` | Start / stop PostgreSQL (Docker)      |
+| `npm run db:reset`          | Drop and recreate the database        |
+| `npm run lint`              | ESLint across all packages            |
+| `npm run format`            | Prettier                              |
+| `npm run typecheck`         | TypeScript checks across all packages |
+| `npm run test`              | Run tests across all packages         |
 
 Prisma commands run from `apps/api/`: `npm run db:migrate`, `npm run db:deploy`, `npm run db:studio`, `npm run prisma:generate`.
 

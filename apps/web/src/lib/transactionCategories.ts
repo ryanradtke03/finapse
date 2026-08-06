@@ -200,6 +200,10 @@ export function getTransactionCategoryLabel(value: string): string {
   const known = DETAILED_LABELS[value];
   if (known) return known;
 
+  // Bare primary category (e.g. "FOOD_AND_DRINK") → friendly group label, so a
+  // whole-bucket budget/filter reads the same everywhere ("Food & Drink").
+  if (PRIMARY_LABELS[value]) return PRIMARY_LABELS[value];
+
   // Fully custom, user-defined categories (FIN-90) are stored canonically as
   // CUSTOM_<UPPER_SNAKE> so a budget and a recategorized transaction always
   // match regardless of how the user typed them. Strip the prefix and

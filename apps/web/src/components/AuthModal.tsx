@@ -4,6 +4,7 @@ import { forgotPassword, googleAuthUrl, login, register } from "../api/auth";
 import { FullLogo } from "../components/Logo";
 import { useAuth } from "../context/AuthContext";
 import { loginSchema, signupSchema } from "../schemas/auth";
+import { DEMO_MODE } from "../lib/config";
 import logger from "../utils/logger";
 
 // Public demo account (FIN-114). Seeded, pre-verified, and pre-loaded with
@@ -24,14 +25,17 @@ function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
       >
         {type === "login" ? "Log in" : "Create account"}
       </button>
-      <div className="flex items-center gap-3 w-full my-2">
-        <div className="flex-1 h-px bg-brand-text-secondary" />
-        <span className="text-xs text-brand-text-secondary">or</span>
-        <div className="flex-1 h-px bg-brand-text-secondary" />
-      </div>
-      <button
-        onClick={handleGoogleLogin}
-        type="button"
+      {/* Google is a signup path too, so it's hidden in demo mode. */}
+      {!DEMO_MODE && (
+        <>
+          <div className="flex items-center gap-3 w-full my-2">
+            <div className="flex-1 h-px bg-brand-text-secondary" />
+            <span className="text-xs text-brand-text-secondary">or</span>
+            <div className="flex-1 h-px bg-brand-text-secondary" />
+          </div>
+          <button
+            onClick={handleGoogleLogin}
+            type="button"
         className="cursor-pointer flex items-center justify-center gap-2 border border-brand-border-subtle w-full rounded-xl py-2 text-sm text-brand-text hover:border-brand-border hover:bg-brand-border-subtle transition-colors duration-200"
       >
         <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
@@ -53,7 +57,9 @@ function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
           />
         </svg>
         Continue with Google
-      </button>
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -281,18 +287,20 @@ function LoginForm({
         Try the demo — no signup →
       </button>
       <FormSubmitOptions type="login" />
-      <div className="flex items-center w-full justify-center mt-6">
-        <span className="text-xs text-brand-text-secondary">
-          Don't have an account?{" "}
-          <button
-            type="button"
-            onClick={onSwitch}
-            className="text-brand-green cursor-pointer"
-          >
-            Sign up free
-          </button>
-        </span>
-      </div>
+      {!DEMO_MODE && (
+        <div className="flex items-center w-full justify-center mt-6">
+          <span className="text-xs text-brand-text-secondary">
+            Don't have an account?{" "}
+            <button
+              type="button"
+              onClick={onSwitch}
+              className="text-brand-green cursor-pointer"
+            >
+              Sign up free
+            </button>
+          </span>
+        </div>
+      )}
     </form>
   );
 }
@@ -487,24 +495,26 @@ export function AuthModal({
           <div className="self-start pt-6 pl-2">
             <FullLogo size="md" />
           </div>
-          <div className="w-80 mt-8 flex bg-brand-bg border border-brand-border-subtle p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setActiveTab("login")}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${activeTab === "login" ? "bg-brand-tab-active text-brand-text" : "text-brand-text-hint hover:text-brand-text"}`}
-            >
-              Log in
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("signup")}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${activeTab === "signup" ? "bg-brand-tab-active text-brand-text" : "text-brand-text-hint hover:text-brand-text"}`}
-            >
-              Sign up
-            </button>
-          </div>
+          {!DEMO_MODE && (
+            <div className="w-80 mt-8 flex bg-brand-bg border border-brand-border-subtle p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setActiveTab("login")}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${activeTab === "login" ? "bg-brand-tab-active text-brand-text" : "text-brand-text-hint hover:text-brand-text"}`}
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("signup")}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${activeTab === "signup" ? "bg-brand-tab-active text-brand-text" : "text-brand-text-hint hover:text-brand-text"}`}
+              >
+                Sign up
+              </button>
+            </div>
+          )}
           <div className="mt-4 w-80">
-            {activeTab === "login" ? (
+            {activeTab === "login" || DEMO_MODE ? (
               <LoginForm
                 onSwitch={() => setActiveTab("signup")}
                 initialError={initialError}

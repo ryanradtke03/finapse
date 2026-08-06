@@ -8,6 +8,7 @@ import {
   syncTransactions,
 } from "../api/plaid";
 import { ConnectBankButton } from "../components/ConnectBankButton";
+import { DEMO_MODE, SANDBOX_CREDENTIALS } from "../lib/config";
 import { Avatar } from "../components/ui/Avatar";
 import { useItems } from "../hooks/useItems";
 import { invalidateTransactionQueries } from "../hooks/useTransactions";
@@ -83,6 +84,18 @@ function formatBalance(value: string | null): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function formatMoney0(value: number): string {
+  const sign = value < 0 ? "-" : "";
+  return `${sign}$${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+// Credit cards and loans are money owed (a liability); everything else
+// (checking, savings, investments) is an asset.
+function isLiability(type: string): boolean {
+  const t = type.toLowerCase();
+  return t === "credit" || t === "loan";
 }
 
 export default function Accounts() {
@@ -167,6 +180,16 @@ export default function Accounts() {
   const items = q.data ?? [];
   const accountCount = items.reduce((sum, i) => sum + i.accounts.length, 0);
 
+  // Net worth = assets − liabilities (credit cards / loans are money owed).
+  const allAccounts = items.flatMap((i) => i.accounts);
+  const assets = allAccounts
+    .filter((a) => !isLiability(a.type))
+    .reduce((sum, a) => sum + (a.balanceCurrent ? Number(a.balanceCurrent) : 0), 0);
+  const debt = allAccounts
+    .filter((a) => isLiability(a.type))
+    .reduce((sum, a) => sum + (a.balanceCurrent ? Number(a.balanceCurrent) : 0), 0);
+  const netWorth = assets - debt;
+
   return (
     <div>
       {/* Header + Connect action always render, independent of load/error
@@ -188,6 +211,22 @@ export default function Accounts() {
         </ConnectBankButton>
       </div>
 
+      {DEMO_MODE && (
+        <div className="mb-6 rounded-xl border border-brand-border-subtle bg-brand-surface p-4 text-sm text-brand-text-secondary">
+          This is a Plaid <span className="text-brand-text">Sandbox</span> demo.
+          To connect a bank, pick any institution and sign in with{" "}
+          <span className="font-mono text-brand-text">
+            {SANDBOX_CREDENTIALS.username}
+          </span>{" "}
+          /{" "}
+          <span className="font-mono text-brand-text">
+            {SANDBOX_CREDENTIALS.password}
+          </span>{" "}
+          (use <span className="font-mono text-brand-text">1234</span> for any
+          code). No real bank data is used.
+        </div>
+      )}
+
       {q.isError && (
         <p className="text-brand-error">
           Couldn't load accounts. You can still connect a new bank above.
@@ -200,6 +239,41 @@ export default function Accounts() {
         </p>
       )}
 
+      {!q.isLoading && !q.isError && items.length > 0 && (
+        <div className="mb-4 rounded-xl border border-brand-border bg-brand-surface p-5">
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-brand-text-secondary">
+                Net worth
+              </p>
+              <p
+                className={`mt-1 text-3xl font-bold ${netWorth < 0 ? "text-brand-error" : "text-brand-text"}`}
+              >
+                {formatMoney0(netWorth)}
+              </p>
+            </div>
+            <div className="flex gap-8">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-brand-text-secondary">
+                  Assets
+                </p>
+                <p className="mt-1 text-lg font-semibold text-brand-green">
+                  {formatMoney0(assets)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-brand-text-secondary">
+                  Debt
+                </p>
+                <p className="mt-1 text-lg font-semibold text-brand-error">
+                  {formatMoney0(debt)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!q.isLoading && !q.isError && (
         <>
           <div className="flex flex-col gap-4">
@@ -210,12 +284,20 @@ export default function Accounts() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar
-                      name={item.institutionName ?? "?"}
-                      shape="square"
-                      variant="palette"
-                      size="md"
-                    />
+                    {item.institutionLogo ? (
+                      <img
+                        src={`data:image/png;base64,${item.institutionLogo}`}
+                        alt={item.institutionName ?? "Bank"}
+                        className="h-10 w-10 shrink-0 rounded-lg bg-white object-contain p-1"
+                      />
+                    ) : (
+                      <Avatar
+                        name={item.institutionName ?? "?"}
+                        shape="square"
+                        variant="palette"
+                        size="md"
+                      />
+                    )}
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-brand-text">
@@ -295,37 +377,46 @@ export default function Accounts() {
                 </div>
 
                 <div className="flex flex-col">
-                  {item.accounts.map((a) => (
-                    <div
-                      key={a.id}
-                      className="flex items-center justify-between border-t border-brand-border-subtle py-3 first:mt-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <CardIcon />
-                        <div>
-                          <p className="text-sm font-medium text-brand-text">
-                            {a.name} {a.mask ? `····${a.mask}` : ""}
-                          </p>
-                          <p className="text-xs text-brand-text-secondary">
-                            {a.subtype ?? a.type}
-                          </p>
+                  {item.accounts.map((a) => {
+                    const liability = isLiability(a.type);
+                    const amount = a.balanceCurrent ? Number(a.balanceCurrent) : 0;
+                    const owed = liability && amount > 0;
+                    return (
+                      <div
+                        key={a.id}
+                        className="flex items-center justify-between border-t border-brand-border-subtle py-3 first:mt-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <CardIcon />
+                          <div>
+                            <p className="text-sm font-medium text-brand-text">
+                              {a.name} {a.mask ? `····${a.mask}` : ""}
+                            </p>
+                            <p className="text-xs text-brand-text-secondary">
+                              {a.subtype ?? a.type}
+                              {liability && " · owed"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span
+                            className={`font-semibold ${owed ? "text-brand-error" : "text-brand-text"}`}
+                          >
+                            {owed ? "-" : ""}
+                            {formatBalance(a.balanceCurrent)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAccount(a)}
+                            title="Remove account"
+                            className="cursor-pointer text-brand-text-secondary transition-colors duration-150 hover:text-brand-error"
+                          >
+                            <XIcon />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="font-semibold text-brand-text">
-                          {formatBalance(a.balanceCurrent)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAccount(a)}
-                          title="Remove account"
-                          className="cursor-pointer text-brand-text-secondary transition-colors duration-150 hover:text-brand-error"
-                        >
-                          <XIcon />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

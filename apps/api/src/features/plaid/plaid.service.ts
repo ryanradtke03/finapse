@@ -665,8 +665,39 @@ function mapTransaction(t: PlaidTransaction, accountId: string) {
   };
 }
 
+// Institution logos (base64 PNG) from Plaid, cached in-memory per institution
+// so we don't re-hit Plaid on every Accounts load. Value is null when Plaid has
+// no logo, so we don't keep retrying misses.
+const institutionLogoCache = new Map<string, string | null>();
+
+async function fetchInstitutionLogo(
+  institutionId: string,
+): Promise<string | null> {
+  if (institutionLogoCache.has(institutionId)) {
+    return institutionLogoCache.get(institutionId) ?? null;
+  }
+  try {
+    const { data } = await plaidClient.institutionsGetById({
+      institution_id: institutionId,
+      country_codes: [CountryCode.Us],
+      options: { include_optional_metadata: true },
+    });
+    const logo = data.institution.logo ?? null;
+    institutionLogoCache.set(institutionId, logo);
+    return logo;
+  } catch (err) {
+    console.warn(
+      "[plaid] institutionsGetById logo fetch failed",
+      institutionId,
+      String(err),
+    );
+    institutionLogoCache.set(institutionId, null);
+    return null;
+  }
+}
+
 export async function getItemsService(userId: string) {
-  return prisma.plaidItem.findMany({
+  const items = await prisma.plaidItem.findMany({
     where: { userId },
     select: {
       id: true,
@@ -688,6 +719,16 @@ export async function getItemsService(userId: string) {
     },
     orderBy: { createdAt: "asc" },
   });
+
+  // Attach the institution logo (fetched + cached) for a nicer Accounts page.
+  return Promise.all(
+    items.map(async (item) => ({
+      ...item,
+      institutionLogo: item.institutionId
+        ? await fetchInstitutionLogo(item.institutionId)
+        : null,
+    })),
+  );
 }
 
 export async function deletePlaidItem(
