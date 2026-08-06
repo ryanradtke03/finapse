@@ -19,8 +19,10 @@ services:
     runtime: node
     plan: free
     # Monorepo: install at the root, then build/migrate/seed the api workspace.
+    # --include=dev forces devDependencies (typescript, prisma, tsx, @types/*),
+    # which Render otherwise skips because it sets NODE_ENV=production at build.
     buildCommand: >-
-      npm install &&
+      npm install --include=dev &&
       npm run prisma:generate --workspace apps/api &&
       npm run build --workspace apps/api &&
       npm run db:deploy --workspace apps/api &&
@@ -73,7 +75,7 @@ services:
   - type: web
     name: finapse-web
     runtime: static
-    buildCommand: npm install && npm run build --workspace apps/web
+    buildCommand: npm install --include=dev && npm run build --workspace apps/web
     staticPublishPath: apps/web/dist
     # SPA fallback so client routes (/dashboard, /transactions, …) resolve.
     routes:
