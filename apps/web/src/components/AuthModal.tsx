@@ -25,14 +25,17 @@ function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
       >
         {type === "login" ? "Log in" : "Create account"}
       </button>
-      <div className="flex items-center gap-3 w-full my-2">
-        <div className="flex-1 h-px bg-brand-text-secondary" />
-        <span className="text-xs text-brand-text-secondary">or</span>
-        <div className="flex-1 h-px bg-brand-text-secondary" />
-      </div>
-      <button
-        onClick={handleGoogleLogin}
-        type="button"
+      {/* Google is a signup path too, so it's hidden in demo mode. */}
+      {!DEMO_MODE && (
+        <>
+          <div className="flex items-center gap-3 w-full my-2">
+            <div className="flex-1 h-px bg-brand-text-secondary" />
+            <span className="text-xs text-brand-text-secondary">or</span>
+            <div className="flex-1 h-px bg-brand-text-secondary" />
+          </div>
+          <button
+            onClick={handleGoogleLogin}
+            type="button"
         className="cursor-pointer flex items-center justify-center gap-2 border border-brand-border-subtle w-full rounded-xl py-2 text-sm text-brand-text hover:border-brand-border hover:bg-brand-border-subtle transition-colors duration-200"
       >
         <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
@@ -54,7 +57,9 @@ function FormSubmitOptions({ type }: { type: "login" | "signup" }) {
           />
         </svg>
         Continue with Google
-      </button>
+          </button>
+        </>
+      )}
     </div>
   );
 }

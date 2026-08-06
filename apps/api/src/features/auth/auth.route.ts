@@ -36,7 +36,8 @@ router.post("/verify-email", authLimiter, verifyEmailHandler);
 router.post("/resend-verification", emailLimiter, requireAuth, resendVerificationHandler);
 router.post("/forgot-password", blockInDemoMode, emailLimiter, forgotPasswordHandler);
 router.post("/reset-password", blockInDemoMode, authLimiter, resetPasswordHandler);
-router.get("/google", googleAuth);
-router.get("/google/callback", googleAuthCallback);
+// Google sign-in creates accounts too, so it's disabled in demo mode.
+router.get("/google", blockInDemoMode, googleAuth);
+router.get("/google/callback", blockInDemoMode, googleAuthCallback);
 
 export default router;
