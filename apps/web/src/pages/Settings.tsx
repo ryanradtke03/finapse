@@ -4,6 +4,7 @@ import { changePassword, deleteUserAccount, updateProfile } from "../api/auth";
 import { DeleteAccountModal } from "../components/DeleteAccountModal";
 import { Avatar } from "../components/ui/Avatar";
 import { useAuth } from "../context/AuthContext";
+import { DEMO_MODE } from "../lib/config";
 
 function TrashIcon() {
   return (
@@ -120,6 +121,11 @@ export default function Settings() {
             </div>
           </div>
 
+          {DEMO_MODE ? (
+            <p className="mt-4 rounded-md border border-brand-border-subtle bg-brand-bg px-3 py-2 text-xs text-brand-text-secondary">
+              This is a shared demo account, so profile editing is disabled.
+            </p>
+          ) : (
           <form
             onSubmit={handleSaveProfile}
             className="mt-4 flex max-w-sm flex-col gap-2"
@@ -153,6 +159,7 @@ export default function Settings() {
               {nameSubmitting ? "Saving…" : "Save"}
             </button>
           </form>
+          )}
         </div>
 
         {/* Session */}
@@ -171,6 +178,8 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Password + account deletion are disabled on the shared demo account. */}
+      {!DEMO_MODE && (
       <div className="grid grid-cols-[1.6fr_1fr] gap-4">
         {/* Change password */}
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
@@ -239,6 +248,7 @@ export default function Settings() {
           </button>
         </div>
       </div>
+      )}
 
       <DeleteAccountModal
         open={deleteModalOpen}

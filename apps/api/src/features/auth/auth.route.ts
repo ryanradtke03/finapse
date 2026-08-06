@@ -25,7 +25,8 @@ const router = Router();
 router.post("/register", blockInDemoMode, authLimiter, register);
 router.post("/login", authLimiter, login);
 router.get("/me", requireAuth, me);
-router.put("/me", requireAuth, updateProfile);
+// Renaming the shared demo account would affect every visitor, so it's blocked.
+router.put("/me", blockInDemoMode, requireAuth, updateProfile);
 router.post("/logout", logout);
 router.put("/password", blockInDemoMode, authLimiter, requireAuth, changePassword);
 router.delete("/me", blockInDemoMode, requireAuth, deleteAccount);

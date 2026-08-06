@@ -252,13 +252,16 @@ function LoginForm({
         <div className="mt-6">
           <div className="flex items-center justify-between">
             <span className="text-brand-text-secondary text-xs">Password</span>
-            <button
-              type="button"
-              onClick={() => setMode("forgot")}
-              className="text-brand-text-secondary text-xs cursor-pointer hover:text-brand-text"
-            >
-              Forgot
-            </button>
+            {/* Password reset is disabled on the shared demo account. */}
+            {!DEMO_MODE && (
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                className="text-brand-text-secondary text-xs cursor-pointer hover:text-brand-text"
+              >
+                Forgot
+              </button>
+            )}
           </div>
           <input
             className="mt-1 w-full bg-brand-bg border border-brand-border-subtle rounded-md py-2 px-2 text-brand-text focus:outline-none"
