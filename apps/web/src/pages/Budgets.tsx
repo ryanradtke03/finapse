@@ -98,6 +98,7 @@ export default function Budgets() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
+  const [prefillCategory, setPrefillCategory] = useState<string | undefined>();
   const [copyError, setCopyError] = useState("");
 
   // Custom categories the user has already created (on transactions or on
@@ -136,8 +137,48 @@ export default function Budgets() {
   const remaining = totalBudgeted - totalSpent;
   const overallColor = usageColor(overallPercent);
 
-  const openCreate = () => {
+  // Month pacing: how far through the selected month we are (0..1). Only
+  // meaningful for the current month — past months are fully elapsed, future
+  // ones haven't started. Drives the "you should be ~here" marker on the bars.
+  const now = new Date();
+  const isCurrentMonth =
+    now.getFullYear() === selectedMonth.getFullYear() &&
+    now.getMonth() === selectedMonth.getMonth();
+  const daysInSelectedMonth = new Date(
+    selectedMonth.getFullYear(),
+    selectedMonth.getMonth() + 1,
+    0,
+  ).getDate();
+  const monthProgress = isCurrentMonth ? now.getDate() / daysInSelectedMonth : 1;
+
+  // At-risk first: sort budgets by % used descending so anything over/near
+  // limit floats to the top.
+  const budgetRows = budgets
+    .map((b) => {
+      const spent = spentForCategory(b.category);
+      const limit = Number(b.limitAmount);
+      const percent = limit > 0 ? (spent / limit) * 100 : 0;
+      return { b, spent, limit, percent };
+    })
+    .sort((a, z) => z.percent - a.percent);
+
+  // Spending in categories with no budget (not covered by any budget's exact
+  // or primary-level match). Biggest first.
+  const unbudgetedRows = byCategoryRows
+    .filter(
+      (row) =>
+        !budgets.some(
+          (b) =>
+            row.category === b.category ||
+            row.category.startsWith(`${b.category}_`),
+        ),
+    )
+    .sort((a, z) => z.total - a.total);
+  const unbudgetedTotal = unbudgetedRows.reduce((sum, r) => sum + r.total, 0);
+
+  const openCreate = (prefill?: string) => {
     setEditing(null);
+    setPrefillCategory(prefill);
     setModalOpen(true);
   };
 
@@ -228,17 +269,26 @@ export default function Budgets() {
                   </span>
                 </div>
                 <div className="flex-1">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-brand-border-subtle">
+                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-brand-border-subtle">
                     <div
                       className={`h-full rounded-full ${overallColor.bar}`}
                       style={{ width: `${Math.min(overallPercent, 100)}%` }}
                     />
+                    {isCurrentMonth && (
+                      <div
+                        className="absolute top-0 h-full w-0.5 bg-white/60"
+                        style={{ left: `${monthProgress * 100}%` }}
+                        title="Where you should be today"
+                      />
+                    )}
                   </div>
                   <p className="mt-1.5 text-xs text-brand-text-secondary">
                     {Math.round(overallPercent)}% used ·{" "}
                     {remaining >= 0
                       ? `$${remaining.toLocaleString(undefined, { maximumFractionDigits: 0 })} remaining`
                       : `over by $${Math.abs(remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+                    {isCurrentMonth &&
+                      ` · day ${now.getDate()} of ${daysInSelectedMonth}`}
                   </p>
                 </div>
               </div>
@@ -246,7 +296,7 @@ export default function Budgets() {
 
             <button
               type="button"
-              onClick={openCreate}
+              onClick={() => openCreate()}
               className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-brand-green px-4 py-2.5 text-sm font-semibold text-brand-bg transition-colors duration-200 hover:bg-brand-green-hover"
             >
               <PlusIcon />
@@ -272,7 +322,7 @@ export default function Budgets() {
                 </button>
                 <button
                   type="button"
-                  onClick={openCreate}
+                  onClick={() => openCreate()}
                   className="cursor-pointer rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-brand-bg transition-colors duration-200 hover:bg-brand-green-hover"
                 >
                   Create budget
@@ -285,11 +335,9 @@ export default function Budgets() {
           )}
 
           <div className="grid grid-cols-3 gap-4">
-            {budgets.map((b) => {
-              const spent = spentForCategory(b.category);
-              const limit = Number(b.limitAmount);
-              const percent = limit > 0 ? (spent / limit) * 100 : 0;
+            {budgetRows.map(({ b, spent, limit, percent }) => {
               const over = spent - limit;
+              const left = limit - spent;
               const color = usageColor(percent);
 
               return (
@@ -325,9 +373,20 @@ export default function Budgets() {
                     </div>
                   </div>
 
-                  <span className="mt-2 inline-block rounded-full bg-brand-surface-raised px-2.5 py-0.5 text-xs text-brand-text-secondary">
-                    Monthly
-                  </span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="inline-block rounded-full bg-brand-surface-raised px-2.5 py-0.5 text-xs text-brand-text-secondary">
+                      Monthly
+                    </span>
+                    {percent > 100 ? (
+                      <span className="rounded-full bg-brand-error-bg px-2.5 py-0.5 text-xs font-medium text-brand-error">
+                        Over budget
+                      </span>
+                    ) : percent >= 80 ? (
+                      <span className="rounded-full bg-brand-surface-raised px-2.5 py-0.5 text-xs font-medium text-brand-warning">
+                        Near limit
+                      </span>
+                    ) : null}
+                  </div>
 
                   <p className="mt-3">
                     <span className={`text-xl font-bold ${color.text}`}>
@@ -339,22 +398,75 @@ export default function Budgets() {
                     </span>
                   </p>
 
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-brand-border-subtle">
+                  <div className="relative mt-2 h-1.5 w-full overflow-hidden rounded-full bg-brand-border-subtle">
                     <div
                       className={`h-full rounded-full ${color.bar}`}
                       style={{ width: `${Math.min(percent, 100)}%` }}
                     />
+                    {isCurrentMonth && (
+                      <div
+                        className="absolute top-0 h-full w-0.5 bg-white/60"
+                        style={{ left: `${monthProgress * 100}%` }}
+                        title="Where you should be today"
+                      />
+                    )}
                   </div>
 
                   <p className={`mt-1.5 text-xs ${percent > 100 ? "text-brand-error" : "text-brand-text-secondary"}`}>
                     {percent > 100
-                      ? `${Math.round(percent)}% - over by $${over.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                      : `${Math.round(percent)}% used`}
+                      ? `${Math.round(percent)}% · over by $${over.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                      : `${Math.round(percent)}% used · $${left.toLocaleString(undefined, { maximumFractionDigits: 0 })} left`}
                   </p>
                 </div>
               );
             })}
           </div>
+
+          {unbudgetedTotal > 0 && (
+            <div className="mt-4 rounded-xl border border-brand-border bg-brand-surface p-5">
+              <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
+                Unbudgeted spending
+              </p>
+              <p className="mt-1 text-2xl font-bold text-brand-text">
+                ${unbudgetedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
+              <p className="mt-0.5 text-xs text-brand-text-secondary">
+                Spent in {unbudgetedRows.length} categor
+                {unbudgetedRows.length === 1 ? "y" : "ies"} with no budget
+              </p>
+
+              <div className="mt-4 flex flex-col divide-y divide-brand-border-subtle">
+                {unbudgetedRows.slice(0, 5).map((row) => (
+                  <div
+                    key={row.category}
+                    className="flex items-center justify-between gap-4 py-2.5"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-sm text-brand-text">
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: getTransactionCategoryColor(row.category) }}
+                      />
+                      <span className="truncate">
+                        {getTransactionCategoryLabel(row.category)}
+                      </span>
+                    </span>
+                    <div className="flex shrink-0 items-center gap-4">
+                      <span className="text-sm font-medium text-brand-text">
+                        ${row.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openCreate(row.category)}
+                        className="cursor-pointer rounded-lg border border-brand-border-subtle px-3 py-1 text-xs font-medium text-brand-text transition-colors duration-150 hover:border-brand-border hover:text-brand-green"
+                      >
+                        Budget it
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -363,6 +475,7 @@ export default function Budgets() {
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
         initial={editing}
+        defaultCategory={prefillCategory}
         customCategories={customCategories}
       />
     </div>

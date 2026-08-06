@@ -1,7 +1,10 @@
 import { useMemo, useState } from "react";
 import type { Budget } from "../api/budgets";
 import { BUDGET_CATEGORIES } from "../lib/budgetCategories";
-import { getTransactionCategoryLabel } from "../lib/transactionCategories";
+import {
+  getPrimaryCategory,
+  getTransactionCategoryLabel,
+} from "../lib/transactionCategories";
 import { CategorySelect, type CategoryOption } from "./ui/CategorySelect";
 
 interface BudgetModalProps {
@@ -9,6 +12,8 @@ interface BudgetModalProps {
   onClose: () => void;
   onSubmit: (data: { category: string; limitAmount: string }) => Promise<void>;
   initial?: Budget | null;
+  /** Prefill the category when creating a new budget (e.g. from "Budget it"). */
+  defaultCategory?: string;
   /** The user's existing custom categories, surfaced for reuse (FIN-90). */
   customCategories?: CategoryOption[];
 }
@@ -18,9 +23,12 @@ export function BudgetModal({
   onClose,
   onSubmit,
   initial,
+  defaultCategory,
   customCategories,
 }: BudgetModalProps) {
-  const [category, setCategory] = useState(initial?.category ?? "");
+  const [category, setCategory] = useState(
+    initial?.category ?? defaultCategory ?? "",
+  );
   const [limitAmount, setLimitAmount] = useState(
     initial ? String(initial.limitAmount) : "",
   );
@@ -29,7 +37,12 @@ export function BudgetModal({
   const [prevOpen, setPrevOpen] = useState(open);
 
   // Grouped once — same list every render, just bucketed by group for
-  // <optgroup> so the ~90 detailed categories are actually scannable.
+  // <optgroup> so the ~90 detailed categories are actually scannable. Each
+  // group also gets a broad "All {group}" option (the primary category) at the
+  // top, mirroring the grouped category filter on Dashboard/Transactions — so a
+  // budget can target a whole bucket (e.g. all of Food & Drink), not just one
+  // subcategory. Primary-level budgets already sum every detailed row under
+  // them on the backend + Budgets page.
   const groupedCategories = useMemo(() => {
     const groups = new Map<string, { value: string; label: string }[]>();
     for (const c of BUDGET_CATEGORIES) {
@@ -37,7 +50,14 @@ export function BudgetModal({
       list.push({ value: c.value, label: getTransactionCategoryLabel(c.value) });
       groups.set(c.group, list);
     }
-    return Array.from(groups.entries());
+    return Array.from(groups.entries()).map(([group, items]) => {
+      const primary = getPrimaryCategory(items[0]?.value ?? "");
+      const list =
+        primary && !items.some((i) => i.value === primary)
+          ? [{ value: primary, label: `All ${group}` }, ...items]
+          : items;
+      return [group, list] as [string, { value: string; label: string }[]];
+    });
   }, []);
 
   // Reset form fields to `initial` each time the modal opens (render-time
@@ -45,7 +65,7 @@ export function BudgetModal({
   if (open !== prevOpen) {
     setPrevOpen(open);
     if (open) {
-      setCategory(initial?.category ?? "");
+      setCategory(initial?.category ?? defaultCategory ?? "");
       setLimitAmount(initial ? String(initial.limitAmount) : "");
       setError("");
     }

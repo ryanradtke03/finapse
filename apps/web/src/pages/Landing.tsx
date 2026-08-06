@@ -167,6 +167,24 @@ function NavLink({ label, to }: { label: string; to: string }) {
   );
 }
 
+// Static, lightweight mock of the real dashboard for the landing hero — no data
+// or chart deps, just brand-styled markup that mirrors the actual product.
+const PREVIEW_STATS = [
+  { label: "Balance", value: "$12,480", accent: "text-brand-text" },
+  { label: "Spending", value: "$2,840", accent: "text-brand-error" },
+  { label: "Income", value: "$4,200", accent: "text-brand-green" },
+  { label: "Avg / day", value: "$95", accent: "text-brand-text" },
+];
+
+const PREVIEW_BARS = [40, 55, 30, 72, 45, 50, 35, 62, 42, 58, 33, 48, 60, 38];
+
+const PREVIEW_LEGEND = [
+  { label: "Groceries", pct: "32%", color: "#eab308" },
+  { label: "Dining", pct: "24%", color: "#f97316" },
+  { label: "Transport", pct: "18%", color: "#14b8a6" },
+  { label: "Other", pct: "26%", color: "#6b7280" },
+];
+
 function Preview() {
   return (
     <div className="w-full max-w-4xl rounded-2xl border border-[--color-brand-border-subtle] overflow-hidden">
@@ -183,11 +201,71 @@ function Preview() {
         </div>
       </div>
 
-      {/* Content area — swap this out later */}
-      <div className="aspect-video bg-[--color-brand-bg] flex items-center justify-center">
-        <span className="text-sm text-[--color-brand-text-hint]">
-          Dashboard preview
-        </span>
+      {/* Content — a mini dashboard */}
+      <div className="flex aspect-video flex-col gap-2.5 bg-brand-bg p-3 sm:p-4">
+        {/* Summary cards */}
+        <div className="grid grid-cols-4 gap-2">
+          {PREVIEW_STATS.map((s) => (
+            <div
+              key={s.label}
+              className="rounded-lg border border-brand-border-subtle bg-brand-surface px-3 py-2"
+            >
+              <p className="text-[9px] uppercase tracking-wide text-brand-text-secondary">
+                {s.label}
+              </p>
+              <p className={`text-sm font-bold ${s.accent}`}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Charts */}
+        <div className="grid flex-1 grid-cols-[1.6fr_1fr] gap-2">
+          {/* Spending over time */}
+          <div className="flex flex-col rounded-lg border border-brand-border-subtle bg-brand-surface p-3">
+            <p className="mb-2 text-[11px] font-semibold text-brand-text">
+              Spending over time
+            </p>
+            <div className="flex flex-1 items-end gap-[3px]">
+              {PREVIEW_BARS.map((h, i) => (
+                <div
+                  key={i}
+                  className="flex-1 rounded-t bg-brand-green"
+                  style={{ height: `${h}%`, opacity: h > 68 ? 1 : 0.55 }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Spending by category */}
+          <div className="flex items-center gap-3 rounded-lg border border-brand-border-subtle bg-brand-surface p-3">
+            <div
+              className="relative h-16 w-16 shrink-0 rounded-full"
+              style={{
+                background:
+                  "conic-gradient(#eab308 0 32%, #f97316 32% 56%, #14b8a6 56% 74%, #6b7280 74% 100%)",
+              }}
+            >
+              <div className="absolute inset-[24%] rounded-full bg-brand-surface" />
+            </div>
+            <div className="flex flex-col gap-1">
+              {PREVIEW_LEGEND.map((l) => (
+                <div
+                  key={l.label}
+                  className="flex items-center gap-1.5 text-[10px]"
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-sm"
+                    style={{ backgroundColor: l.color }}
+                  />
+                  <span className="text-brand-text">{l.label}</span>
+                  <span className="ml-auto pl-2 text-brand-text-secondary">
+                    {l.pct}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

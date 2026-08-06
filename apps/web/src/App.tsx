@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import About from "./pages/About";
@@ -9,6 +9,7 @@ import Contact from "./pages/Contact";
 import Dashboard from "./pages/Dashboard";
 import Features from "./pages/Features";
 import Landing from "./pages/Landing";
+import NotFound from "./pages/NotFound";
 import Pricing from "./pages/Pricing";
 import Privacy from "./pages/Privacy";
 import ResetPassword from "./pages/ResetPassword";
@@ -43,7 +44,7 @@ export default function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
