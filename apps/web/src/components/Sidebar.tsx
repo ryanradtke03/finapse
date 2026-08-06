@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Avatar } from "./ui/Avatar";
 import { LogoIcon, LogoText } from "./Logo";
 
-type IconComponent = (props: { className?: string }) => JSX.Element;
+type IconComponent = (props: { className?: string }) => ReactElement;
 
 function IconWrap({
   children,
