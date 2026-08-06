@@ -15,6 +15,10 @@ root as `npm run test`). Test files live next to the code they cover, under `__t
   `resolveEffectiveCategory` (override > subscription > detail > primary precedence) and
   `buildDetailedCategoryWhere` (the SUBSCRIPTION sentinel branch and the legacy
   primary-category fallback).
+- `src/features/plaid/__tests__/plaid.webhook.test.ts` — covers `routeWebhook`, the pure
+  function that maps a Plaid `webhook_type` + `webhook_code` to an action
+  (`sync` / `reauth` / `ignore`), kept I/O-free so the routing logic is tested without
+  hitting Plaid or the DB.
 
 Run with:
 

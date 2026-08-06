@@ -129,6 +129,24 @@ Run from the repo root unless noted.
 
 Prisma commands run from `apps/api/`: `npm run db:migrate`, `npm run db:deploy`, `npm run db:studio`, `npm run prisma:generate`.
 
+## Process
+
+Finapse was run like a real product, not a code-until-it-works project. The workflow moved deliberately from planning → design → tracked implementation → automated quality gates → deploy.
+
+**Planning & specs.** Ideas, feature specs, and data-model decisions were captured first in an [Obsidian](https://obsidian.md) vault — the schema, category-resolution rules, and edge cases (internal transfers, recurring detection, reauth flows) were thought through in writing before any code was committed. This kept the build decisions-first instead of discovering the design mid-implementation.
+
+**Design & mockups.** The key screens — dashboard, transactions, budgets — were mocked up before building, so the UI had a target and the API could be shaped around what the frontend actually needed rather than the reverse.
+
+**Issue tracking.** All work was planned and tracked in [Linear](https://linear.app) as the **Finapse MVP** project. Roughly 115 `FIN-` tickets were scoped under milestones (Setup → Auth → Transactions → Budgeting → Polish + Deploy) and labeled by area (`Frontend`, `Backend`, `API`, `Auth`, `Feature`, `Bug`, `Improvement`, `Docs`). Tickets ran through real states — including a few deliberately **Canceled** and **Backlog** — reflecting actual scope decisions, not a checklist. Commits and code comments reference their ticket (e.g. `FIN-114`), so any change traces back to the issue that drove it.
+
+**Implementation conventions.** Consistent structure throughout: a feature-based backend (`Routes → Controllers → Services → Prisma`), Zod schemas validating every request, and a shared `@finapse/types` package keeping the client and server in sync.
+
+**Quality gates.** Every change is held to the same bar locally and in CI: **ESLint 9** (flat config + `typescript-eslint` + react-hooks rules) for linting, **Prettier** for formatting, **`tsc`** typechecking across all workspaces, and **Vitest** unit tests covering the pure, I/O-free logic (category resolution, recurring detection, webhook verification).
+
+**CI/CD.** A [GitHub Actions](.github/workflows/ci.yml) workflow runs `install → prisma generate → lint → typecheck → test` on every push to `main` and every pull request. Deploys are gated behind merge to `main`, where [Render](https://render.com) auto-deploys the API, database, and static frontend from a single blueprint (`render.yaml`).
+
 ## Documentation
 
-More detail lives in [`docs/`](docs/): [architecture](docs/architecture.md), [api](docs/api.md), [auth](docs/auth.md), [database](docs/db.md), [web](docs/web.md), and [testing](docs/testing.md).
+More detail lives in [`docs/`](docs/): [architecture](docs/architecture.md), [API reference](docs/api/README.md), [auth](docs/auth.md), [database](docs/db.md), [web](docs/web.md), and [testing](docs/testing.md).
+
+A ready-to-import **Postman collection** covering the full API (Auth, Plaid, Budget, Transaction, Health — ~36 requests) lives at [`postman/Finapse_V1.postman_collection.json`](postman/Finapse_V1.postman_collection.json). See [`docs/api/`](docs/api/README.md#postman-collection) for import notes.

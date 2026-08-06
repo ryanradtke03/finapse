@@ -4,11 +4,13 @@ Guidelines for working in this repository.
 
 ## Setup
 
-1. Install dependencies at root
-2. Start backend
-3. Start frontend
+See [Local Development](./DEVELOPMENT.md) for env files and the exact commands.
+The short version, from the repo root:
 
-(Exact commands should be defined in root README.)
+```bash
+npm install
+npm run dev      # Postgres + API + web together
+```
 
 ## Branching Strategy
 
@@ -39,6 +41,7 @@ fix(api): correct spending aggregation
 ## Documentation Rule
 
 If you introduce:
-- A new endpoint → update `api.md`
+- A new/changed endpoint → update the matching file in [`docs/api/`](./api/) (`auth.md`, `plaid.md`, `budgets.md`, `transactions.md`, `health.md`)
 - A schema change → update `db.md`
+- An auth/session change → update `auth.md`
 - A structural decision → update `architecture.md`

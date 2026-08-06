@@ -51,7 +51,7 @@ Defined in `schema.prisma`. Summary of the main entities:
 
 ### Budget
 
-- Per-user, per-category monthly budget (`category`, `limit`, `periodStart`).
+- Per-user, per-category monthly budget (`category`, `limitAmount`, `periodStart`). Unique per `(userId, category, periodStart)`.
 
 ### MerchantCategoryRule
 

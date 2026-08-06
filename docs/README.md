@@ -6,13 +6,21 @@ These docs explain architecture, API contracts, and development practices so the
 
 ## Contents
 
-- [Architecture](./architecture.md)
-- [API](./api.md)
-- [Auth Endpoints](./auth.md)
-- [Web App](./web.md)
-- [Database](./db.md)
-- [Testing](./testing.md)
-- [Contributing](./contributing.md)
+**Reference**
+
+- [Architecture](./architecture.md) — system structure, request flow, domain logic
+- [API reference](./api/README.md) — per-feature endpoint contracts (`auth`, `plaid`, `budgets`, `transactions`, `health`)
+- [Authentication](./auth.md) — session model, cookies, JWT, providers
+- [Database](./db.md) — schema, models, migrations
+- [Web App](./web.md) — frontend structure and conventions
+- [Tech overview](./tech-overview.md) — one-page map of the whole stack
+
+**Working in the repo**
+
+- [Local Development](./DEVELOPMENT.md) — running the stack, env files, modes
+- [Demo Mode](./DEMO_MODE.md) — public Sandbox demo posture and deploy
+- [Testing](./testing.md) — unit tests and Plaid Sandbox test data
+- [Contributing](./contributing.md) — branching, PRs, doc rules
 
 ## Philosophy
 
