@@ -8,10 +8,11 @@ Built as a full-stack project: a TypeScript monorepo with a React front end, an 
 
 ## Screenshots
 
-<!-- TODO: drop in real images, e.g. docs/images/dashboard.png -->
-
 ![Dashboard](docs/images/dashboard.png)
+
 ![Transactions](docs/images/transactions.png)
+
+![Budgets](docs/images/budgets.png)
 
 ## Features
 
