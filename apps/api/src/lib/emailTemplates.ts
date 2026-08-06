@@ -44,7 +44,7 @@ export function renderEmail({
             <tr>
               <td style="padding:32px 40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
                 <p style="margin:0 0 24px;font-size:20px;font-weight:800;color:${TEXT};letter-spacing:-0.02em;">
-                  Fin<span style="color:${BRAND_GREEN};">apse</span>
+                  Fi<span style="color:${BRAND_GREEN};">napse</span>
                 </p>
                 <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:-0.02em;">
                   ${escapeHtml(heading)}

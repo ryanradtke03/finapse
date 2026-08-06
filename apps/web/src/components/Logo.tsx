@@ -30,7 +30,7 @@ export function LogoText({ size = 'md' }: { size?: LogoSize }) {
   const s = sizeConfig[size]
   return (
     <span className={`text-brand-text font-extrabold ${s.text}`}>
-      Fin<span className="text-brand-green">apse</span>
+      Fi<span className="text-brand-green">napse</span>
     </span>
   )
 }
