@@ -34,9 +34,11 @@ export interface PlaidItem {
   itemId: string;
   institutionId: string | null;
   institutionName: string | null;
+  /** Base64 PNG logo from Plaid, when available. */
+  institutionLogo?: string | null;
   status: PlaidItemStatus;
-  updatedAt: string;        
-  accounts: Account[];       
+  updatedAt: string;
+  accounts: Account[];
 }
 
 export interface Account {
