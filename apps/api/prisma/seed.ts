@@ -206,7 +206,11 @@ function buildTransactions(checkingId: string, creditId: string): Row[] {
     }
     if (chance(0.22)) {
       const store = pick(["WHOLE FOODS", "TRADER JOE'S", "SAFEWAY", "KROGER"]);
-      add(creditId, money(35, 110), store, store.split(" ").map((w) => w[0] + w.slice(1).toLowerCase()).join(" "), "FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES", date);
+      // Groceries are the one everyday category people commonly pay for with
+      // a debit card rather than credit — split it so checking sees some
+      // discretionary spend too, not just payroll/rent/bills.
+      const account = chance(0.35) ? checkingId : creditId;
+      add(account, money(35, 110), store, store.split(" ").map((w) => w[0] + w.slice(1).toLowerCase()).join(" "), "FOOD_AND_DRINK", "FOOD_AND_DRINK_GROCERIES", date);
     }
     if (chance(0.14)) {
       add(creditId, money(8, 15), pick(["MCDONALD'S", "CHICK-FIL-A", "TACO BELL"]), pick(["McDonald's", "Chick-fil-A", "Taco Bell"]), "FOOD_AND_DRINK", "FOOD_AND_DRINK_FAST_FOOD", date);
