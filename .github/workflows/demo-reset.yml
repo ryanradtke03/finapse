@@ -1,0 +1,24 @@
+name: Nightly demo reset
+
+# Triggers a Render redeploy of finapse-api, whose buildCommand already runs
+# `npm run db:seed --workspace apps/api` — that reseed is idempotent (wipes
+# and regenerates the shared demo account's transactions/budgets), so a
+# redeploy is a free way to reset it without a paid Render Cron Job.
+#
+# Setup: Render dashboard → finapse-api service → Settings → Deploy Hook →
+# copy the URL → add it as a repo secret named RENDER_DEPLOY_HOOK_URL
+# (Settings → Secrets and variables → Actions).
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # 08:00 UTC daily
+  workflow_dispatch: {} # allow manual "Run workflow" from the Actions tab
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
