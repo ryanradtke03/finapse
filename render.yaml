@@ -58,7 +58,22 @@ services:
         value: "true"
       - key: SEED_DEMO
         value: "true"
-      # Trust one proxy hop so per-IP rate limits key on the real client IP.
+      # Number of proxy hops in front of this service, so per-IP rate limits
+      # key on the real client IP rather than a proxy's.
+      #
+      # NOTE: the frontend now proxies /api/* to this service (see the rewrite
+      # on finapse-web below), which adds a hop. If req.ip resolves to the
+      # proxy's address, every visitor shares one rate-limit bucket and the
+      # site 429s under normal traffic. Verify before trusting this value:
+      #
+      #   1. Add PROXY_DEBUG_TOKEN (any random string) to this service in the
+      #      Render dashboard — `sync: false` keys are only prompted for on
+      #      initial Blueprint creation, so it has to be added by hand.
+      #   2. curl "https://<web-host>/api/v1/health/proxy?token=<that token>"
+      #      from two different networks.
+      #   3. If `resolvedIp` is identical across both, raise this to match
+      #      `hopCount` from the response. If it differs, this value is right.
+      #   4. Delete PROXY_DEBUG_TOKEN and the /health/proxy route afterwards.
       - key: TRUST_PROXY
         value: "1"
       # URL-coupled vars — set after the first deploy, once the URLs exist:
@@ -77,15 +92,28 @@ services:
     runtime: static
     buildCommand: npm install --include=dev && npm run build --workspace apps/web
     staticPublishPath: apps/web/dist
-    # SPA fallback so client routes (/dashboard, /transactions, …) resolve.
     routes:
+      # Proxy the API through the frontend's OWN origin so the `token` cookie is
+      # first-party. finapse-web.onrender.com and finapse-api.onrender.com are
+      # different *sites* — onrender.com is on the Public Suffix List, so they
+      # are not sibling subdomains. Calling the API host directly makes `token`
+      # a third-party cookie, which iOS Safari (and therefore every browser on
+      # iOS) blocks outright. Symptom: login appears to succeed, then no data
+      # loads and a refresh bounces to the landing page.
+      #
+      # Rules are matched in order, so this MUST come before the SPA fallback.
+      - type: rewrite
+        source: /api/*
+        destination: https://finapse-api.onrender.com/api/*
+      # SPA fallback so client routes (/dashboard, /transactions, …) resolve.
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_DEMO_MODE
         value: "true"
-      # Full API base incl. the version prefix, e.g.
-      # https://finapse-api.onrender.com/api/v1  — set after the API is up.
+      # Relative on purpose — requests go to the frontend's own origin and the
+      # rewrite above forwards them to the API. Do NOT set this to the API's
+      # absolute URL; that reintroduces the third-party-cookie breakage on iOS.
       - key: VITE_API_URL
-        sync: false
+        value: /api/v1

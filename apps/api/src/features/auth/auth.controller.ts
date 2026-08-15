@@ -85,7 +85,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
     const result = await loginUser(parsed);
 
-    setAuthCookie(res, result.cookie.value);
+    setAuthCookie(res, result.token);
 
     return res.status(200).json({
       user: result.user,

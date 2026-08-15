@@ -19,6 +19,12 @@ if (!clientID || !clientSecret) {
         clientSecret,
         // Must match the route (mounted at /api/v1/auth/...) and the Authorized
         // redirect URI in the Google Cloud console. Override per-env if needed.
+        //
+        // In production point GOOGLE_CALLBACK_URL at the FRONTEND origin's
+        // proxied path (https://<web-host>/api/v1/auth/google/callback), not the
+        // API host. The callback is what sets the auth cookie, so it has to land
+        // on the same origin the app is served from — otherwise the cookie is
+        // stored against the API host and iOS blocks it on every later request.
         callbackURL:
           process.env.GOOGLE_CALLBACK_URL ?? "/api/v1/auth/google/callback",
       },

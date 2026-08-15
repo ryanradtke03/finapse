@@ -1,5 +1,4 @@
 import bcrypt from "bcrypt";
-import type { CookieOptions } from "express";
 import * as jwt from "jsonwebtoken";
 import { requireEnv } from "../../config/env";
 import { prisma } from "../../db/prisma";
@@ -166,13 +165,13 @@ export function authProviderFor(passwordHash: string): "google" | "password" {
   return passwordHash === "" ? "google" : "password";
 }
 
+// Returns the signed JWT, not cookie options. Setting the cookie is the
+// controller's job (auth.cookies.ts owns the flags) — this used to also return
+// an `options` object that no caller read, which quietly disagreed with the
+// real flags. One source of truth now.
 export async function loginUser(input: LoginInput): Promise<{
   user: PublicUser;
-  cookie: {
-    name: string;
-    value: string;
-    options: CookieOptions;
-  };
+  token: string;
 }> {
   const email = normalizeEmail(input.email);
 
@@ -211,8 +210,6 @@ export async function loginUser(input: LoginInput): Promise<{
     { expiresIn },
   );
 
-  const isProd = process.env.NODE_ENV === "production";
-
   return {
     user: {
       id: user.id,
@@ -222,16 +219,7 @@ export async function loginUser(input: LoginInput): Promise<{
       emailVerified: user.emailVerified,
       provider: authProviderFor(user.passwordHash),
     },
-    cookie: {
-      name: "token",
-      value: token,
-      options: {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: "lax",
-        path: "/",
-      },
-    },
+    token,
   };
 }
 
