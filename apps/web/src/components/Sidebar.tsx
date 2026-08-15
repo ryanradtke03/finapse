@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Avatar } from "./ui/Avatar";
@@ -160,6 +160,23 @@ function HistoryIcon({ className }: { className?: string }) {
   );
 }
 
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      className={className}
+    >
+      <path d="M2 2l12 12M14 2L2 14" />
+    </svg>
+  );
+}
+
 function ChevronIcon({ open, className = "" }: { open: boolean; className?: string }) {
   return (
     <svg
@@ -202,10 +219,16 @@ const transactionsChildren: {
 ];
 
 // A top-level nav link (Dashboard, Budgets, Accounts).
-function NavItem({ to, label, icon: Icon }: NavItemDef) {
+function NavItem({
+  to,
+  label,
+  icon: Icon,
+  onNavigate,
+}: NavItemDef & { onNavigate?: () => void }) {
   return (
     <NavLink
       to={to}
+      onClick={onNavigate}
       className={({ isActive }) =>
         `relative flex items-center gap-3 rounded-lg px-3 py-2.5 no-underline transition-colors duration-150 ${
           isActive
@@ -238,18 +261,68 @@ const comingSoon = [
   { label: "Investments", icon: InvestmentsIcon },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  /** Whether the mobile drawer is open. Ignored at md+, where the sidebar is always visible. */
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const { user } = useAuth();
   const [txnOpen, setTxnOpen] = useState(true);
 
+  // Escape closes the mobile drawer while it's open.
+  useEffect(() => {
+    if (!open) return;
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open, onClose]);
+
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
   return (
-    <nav className="sticky top-0 flex h-screen w-[230px] shrink-0 flex-col border-r border-brand-border bg-brand-bg px-3 py-4">
-      {/* Logo — matches the landing header (md icon + text), left-aligned with
-          the nav items below via matching px-3 */}
-      <div className="flex shrink-0 items-center gap-3 px-3 pb-6 pt-2">
-        <LogoIcon size="md" />
-        <LogoText size="md" />
-      </div>
+    <>
+      {/* Backdrop — mobile only, click to close. */}
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 md:hidden ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+
+      <nav
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[230px] shrink-0 flex-col border-r border-brand-border bg-brand-bg px-3 py-4 transition-transform duration-300 ease-out md:sticky md:top-0 md:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Logo — matches the landing header (md icon + text), left-aligned with
+            the nav items below via matching px-3. Close button is mobile-only. */}
+        <div className="flex shrink-0 items-center justify-between gap-3 px-3 pb-6 pt-2">
+          <div className="flex items-center gap-3">
+            <LogoIcon size="md" />
+            <LogoText size="md" />
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="cursor-pointer text-brand-text-secondary transition-colors duration-150 hover:text-brand-text md:hidden"
+          >
+            <CloseIcon />
+          </button>
+        </div>
 
       {/* Scrollable nav area — logo stays pinned above, profile below */}
       <div className="flex-1 overflow-y-auto">
@@ -257,7 +330,7 @@ export default function Sidebar() {
       {/* Nav items */}
       <div className="flex flex-col gap-1">
         {topItems.map((item) => (
-          <NavItem key={item.to} {...item} />
+          <NavItem key={item.to} {...item} onNavigate={onClose} />
         ))}
 
         {/* Transactions group — expandable, with nested sub-items */}
@@ -282,6 +355,7 @@ export default function Sidebar() {
                       key={child.label}
                       to={child.to}
                       end
+                      onClick={onClose}
                       className={({ isActive }) =>
                         `flex items-center gap-3 rounded-lg py-2 pl-8 pr-3 text-sm no-underline transition-colors duration-150 ${
                           isActive
@@ -321,7 +395,7 @@ export default function Sidebar() {
         </div>
 
         {bottomItems.map((item) => (
-          <NavItem key={item.to} {...item} />
+          <NavItem key={item.to} {...item} onNavigate={onClose} />
         ))}
       </div>
 
@@ -354,6 +428,7 @@ export default function Sidebar() {
       <NavLink
         to="/settings"
         title="Settings"
+        onClick={onClose}
         className={({ isActive }) =>
           `group mt-2 flex shrink-0 items-center gap-3 rounded-lg border-t border-brand-border-subtle px-1 pt-4 no-underline transition-colors duration-150 ${
             isActive ? "text-brand-green" : "text-brand-text hover:text-brand-text"
@@ -385,6 +460,7 @@ export default function Sidebar() {
           </>
         )}
       </NavLink>
-    </nav>
+      </nav>
+    </>
   );
 }

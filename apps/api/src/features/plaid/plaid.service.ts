@@ -52,6 +52,11 @@ export async function createLinkToken(userId: string, institutionId?: string) {
     user: { client_user_id: userId },
     client_name: "Finapse",
     products: [Products.Transactions],
+    // Plaid defaults to 90 days of history. This is fixed at Item creation —
+    // it cannot be extended later (not by update mode, not by a full resync);
+    // the Item must be removed and relinked. Ask for the max up front.
+    // Institutions may return less than requested.
+    transactions: { days_requested: 730 },
     language: "en",
     country_codes: [CountryCode.Us],
     ...(webhookUrl && { webhook: webhookUrl }),

@@ -482,11 +482,11 @@ export function AuthModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-100 bg-brand-surface border border-brand-border rounded-2xl shadow-2xl relative py-6"
+        className="relative max-h-[90vh] w-full max-w-100 overflow-y-auto rounded-2xl border border-brand-border bg-brand-surface py-6 shadow-2xl"
       >
         <button
           onClick={onClose}
@@ -499,7 +499,7 @@ export function AuthModal({
             <FullLogo size="md" />
           </div>
           {!DEMO_MODE && (
-            <div className="w-80 mt-8 flex bg-brand-bg border border-brand-border-subtle p-1 rounded-xl">
+            <div className="w-80 max-w-full mt-8 flex bg-brand-bg border border-brand-border-subtle p-1 rounded-xl">
               <button
                 type="button"
                 onClick={() => setActiveTab("login")}
@@ -516,7 +516,7 @@ export function AuthModal({
               </button>
             </div>
           )}
-          <div className="mt-4 w-80">
+          <div className="mt-4 w-80 max-w-full">
             {activeTab === "login" || DEMO_MODE ? (
               <LoginForm
                 onSwitch={() => setActiveTab("signup")}

@@ -254,12 +254,12 @@ export default function Budgets() {
             </button>
           </div>
 
-          <div className="mb-6 flex items-center gap-4">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="flex-1 rounded-xl border border-brand-border bg-brand-surface p-5">
               <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
                 {monthLabelOf(selectedMonth)}
               </p>
-              <div className="mt-2 flex items-end justify-between gap-8">
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
                 <div>
                   <span className="text-3xl font-bold text-brand-text">
                     ${totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -309,7 +309,7 @@ export default function Budgets() {
               <p className="text-brand-text-secondary">
                 No budgets for {monthLabelOf(selectedMonth)}.
               </p>
-              <div className="mt-4 flex items-center justify-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={handleCopyForward}
@@ -334,7 +334,7 @@ export default function Budgets() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {budgetRows.map(({ b, spent, limit, percent }) => {
               const over = spent - limit;
               const left = limit - spent;

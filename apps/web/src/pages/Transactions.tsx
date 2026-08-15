@@ -179,9 +179,9 @@ export default function Transactions() {
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-3">
-        <div className="flex min-w-64 flex-1 items-center gap-2 rounded-xl border border-brand-border-subtle bg-brand-surface px-4 py-2.5">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-1 sm:flex-row sm:flex-wrap">
+        <div className="flex w-full items-center gap-2 rounded-xl border border-brand-border-subtle bg-brand-surface px-4 py-2.5 sm:min-w-64 sm:flex-1">
           <SearchIcon />
           <input
             placeholder="Search by merchant…"
@@ -190,6 +190,7 @@ export default function Transactions() {
             className="w-full bg-transparent text-sm text-brand-text placeholder:text-brand-text-secondary focus:outline-none"
           />
         </div>
+        <div className="grid grid-cols-2 gap-3 sm:contents">
         <MultiSelectDropdown
           label="Account"
           values={filters.accountId ?? []}
@@ -199,7 +200,7 @@ export default function Transactions() {
           }))}
           onChange={(values) => setFilters({ accountId: values })}
           allLabel="All Accounts"
-          className="w-56"
+          className="col-span-2 sm:w-56"
         />
         <DateRangeControl
           label="Time frame"
@@ -216,7 +217,7 @@ export default function Transactions() {
             })
           }
           includeAllTime
-          className="w-56"
+          className="w-full sm:w-56"
         />
         <CategoryFilterDropdown
           label="Categories"
@@ -224,19 +225,20 @@ export default function Transactions() {
           options={categoryOptions}
           onChange={(values) => setFilters({ category: values })}
           allLabel="All Categories"
-          className="w-56"
+          className="w-full sm:w-56"
         />
         {hasActiveFilters && (
           <button
             type="button"
             onClick={clearAllFilters}
             title="Clear all filters"
-            className="flex items-center gap-1.5 self-stretch rounded-xl border border-brand-border-subtle px-4 text-sm font-medium text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text"
+            className="col-span-2 flex items-center justify-center gap-1.5 rounded-xl border border-brand-border-subtle px-4 py-2.5 text-sm font-medium text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text sm:justify-start sm:self-stretch sm:py-0"
           >
             Clear filters
             <span className="text-base leading-none">×</span>
           </button>
         )}
+        </div>
         </div>
         <button
           type="button"
@@ -245,7 +247,7 @@ export default function Transactions() {
           title={
             accounts.length === 0 ? "Connect an account first" : undefined
           }
-          className="shrink-0 cursor-pointer rounded-xl bg-brand-green px-4 py-2.5 text-sm font-semibold text-brand-bg transition-colors duration-200 hover:bg-brand-green-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full shrink-0 cursor-pointer rounded-xl bg-brand-green px-4 py-2.5 text-sm font-semibold text-brand-bg transition-colors duration-200 hover:bg-brand-green-hover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           + Add transaction
         </button>
@@ -269,7 +271,8 @@ export default function Transactions() {
       )}
 
       <div className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
-        <div className="grid grid-cols-[2fr_1.2fr_1.2fr_1fr_1fr] gap-4 border-b border-brand-border-subtle px-5 py-3 text-xs tracking-wide text-brand-text-secondary uppercase">
+        {/* Column header — desktop-grid only; the mobile card rows below label themselves. */}
+        <div className="hidden text-xs tracking-wide text-brand-text-secondary uppercase md:grid md:grid-cols-[2fr_1.2fr_1.2fr_1fr_1fr] md:gap-4 md:border-b md:border-brand-border-subtle md:px-5 md:py-3">
           <span>Merchant</span>
           <span>Category</span>
           <span>Account</span>
@@ -290,35 +293,61 @@ export default function Transactions() {
           const account = accountLookup.get(t.accountId);
           const amount = Number(t.amount);
           const isIncome = amount < 0;
+          const accountLabel = account
+            ? `${account.institutionName} ··${account.mask ?? "----"}`
+            : "—";
+          const dateLabel = new Date(t.date).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+          });
           return (
             <div
               key={t.id}
               onClick={() => setSelectedId(t.id)}
-              className={`grid cursor-pointer grid-cols-[2fr_1.2fr_1.2fr_1fr_1fr] items-center gap-4 border-b border-brand-border-subtle px-5 py-3.5 transition-colors duration-100 last:border-0 hover:bg-brand-surface-raised ${
+              className={`cursor-pointer border-b border-brand-border-subtle px-5 py-3.5 transition-colors duration-100 last:border-0 hover:bg-brand-surface-raised ${
                 selectedId === t.id ? "bg-brand-surface-raised" : ""
               }`}
             >
-              <span className="truncate text-sm font-medium text-brand-text">
-                {t.merchantName ?? t.name}
-              </span>
-              <CategoryBadge category={getEffectiveCategory(t)} />
-              <span className="truncate text-sm text-brand-text-secondary">
-                {account
-                  ? `${account.institutionName} ··${account.mask ?? "----"}`
-                  : "—"}
-              </span>
-              <span className="text-sm text-brand-text-secondary">
-                {new Date(t.date).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-              <span
-                className={`text-right text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-text"}`}
-              >
-                {isIncome ? "+" : "-"}
-                {formatMoney(amount)}
-              </span>
+              {/* Mobile card layout: merchant/amount on top, details below. */}
+              <div className="flex items-center justify-between gap-3 md:hidden">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-brand-text">
+                    {t.merchantName ?? t.name}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <CategoryBadge category={getEffectiveCategory(t)} />
+                    <span className="truncate text-xs text-brand-text-secondary">
+                      {accountLabel} · {dateLabel}
+                    </span>
+                  </div>
+                </div>
+                <span
+                  className={`shrink-0 text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-text"}`}
+                >
+                  {isIncome ? "+" : "-"}
+                  {formatMoney(amount)}
+                </span>
+              </div>
+
+              {/* Desktop grid layout. */}
+              <div className="hidden md:grid md:grid-cols-[2fr_1.2fr_1.2fr_1fr_1fr] md:items-center md:gap-4">
+                <span className="truncate text-sm font-medium text-brand-text">
+                  {t.merchantName ?? t.name}
+                </span>
+                <CategoryBadge category={getEffectiveCategory(t)} />
+                <span className="truncate text-sm text-brand-text-secondary">
+                  {accountLabel}
+                </span>
+                <span className="text-sm text-brand-text-secondary">
+                  {dateLabel}
+                </span>
+                <span
+                  className={`text-right text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-text"}`}
+                >
+                  {isIncome ? "+" : "-"}
+                  {formatMoney(amount)}
+                </span>
+              </div>
             </div>
           );
         })}

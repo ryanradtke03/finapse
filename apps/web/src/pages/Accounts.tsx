@@ -195,7 +195,7 @@ export default function Accounts() {
       {/* Header + Connect action always render, independent of load/error
           state — otherwise a new user with no accounts (or a failed load)
           would have no way to add a bank. */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-brand-text-secondary">
           {q.isLoading
             ? "Loading accounts…"
@@ -282,8 +282,8 @@ export default function Accounts() {
                 key={item.id}
                 className="rounded-xl border border-brand-border bg-brand-surface p-5"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
                     {item.institutionLogo ? (
                       <img
                         src={`data:image/png;base64,${item.institutionLogo}`}
@@ -319,7 +319,7 @@ export default function Accounts() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {item.status === "NEEDS_REAUTH" ? (
                       // A broken connection can't sync/backfill until it's
                       // re-authenticated, so offer only Reconnect (Plaid Link
@@ -384,21 +384,21 @@ export default function Accounts() {
                     return (
                       <div
                         key={a.id}
-                        className="flex items-center justify-between border-t border-brand-border-subtle py-3 first:mt-3"
+                        className="flex items-center justify-between gap-3 border-t border-brand-border-subtle py-3 first:mt-3"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <CardIcon />
-                          <div>
-                            <p className="text-sm font-medium text-brand-text">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-brand-text">
                               {a.name} {a.mask ? `····${a.mask}` : ""}
                             </p>
-                            <p className="text-xs text-brand-text-secondary">
+                            <p className="truncate text-xs text-brand-text-secondary">
                               {a.subtype ?? a.type}
                               {liability && " · owed"}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex shrink-0 items-center gap-4">
                           <span
                             className={`font-semibold ${owed ? "text-brand-error" : "text-brand-text"}`}
                           >

@@ -104,7 +104,7 @@ export default function Settings() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-[1.6fr_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.6fr_1fr]">
         {/* Profile */}
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <h3 className="mb-4 font-semibold text-brand-text">Profile</h3>
@@ -180,7 +180,7 @@ export default function Settings() {
 
       {/* Password + account deletion are disabled on the shared demo account. */}
       {!DEMO_MODE && (
-      <div className="grid grid-cols-[1.6fr_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.6fr_1fr]">
         {/* Change password */}
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <h3 className="font-semibold text-brand-text">Change password</h3>
