@@ -40,6 +40,39 @@ describe("computeRecurringIds", () => {
     expect(computeRecurringIds(rows)).toEqual(new Set(["c1", "c2", "c3"]));
   });
 
+  it("does not flag rent, despite it being the most monthly charge there is", () => {
+    // Same primary category as the Comcast case above, same perfect cadence
+    // and identical amount — only the detailed category separates them.
+    const rows = [
+      row({ id: "r1", merchantName: "Greenfield Apartments", personalFinanceCategory: "RENT_AND_UTILITIES", personalFinanceCategoryDetail: "RENT_AND_UTILITIES_RENT", date: new Date("2026-01-01"), amount: 1750 }),
+      row({ id: "r2", merchantName: "Greenfield Apartments", personalFinanceCategory: "RENT_AND_UTILITIES", personalFinanceCategoryDetail: "RENT_AND_UTILITIES_RENT", date: new Date("2026-02-01"), amount: 1750 }),
+      row({ id: "r3", merchantName: "Greenfield Apartments", personalFinanceCategory: "RENT_AND_UTILITIES", personalFinanceCategoryDetail: "RENT_AND_UTILITIES_RENT", date: new Date("2026-03-01"), amount: 1750 }),
+      row({ id: "r4", merchantName: "Greenfield Apartments", personalFinanceCategory: "RENT_AND_UTILITIES", personalFinanceCategoryDetail: "RENT_AND_UTILITIES_RENT", date: new Date("2026-04-01"), amount: 1750 }),
+    ];
+    expect(computeRecurringIds(rows)).toEqual(new Set());
+  });
+
+  it("still flags internet and phone bills under the same primary category", () => {
+    const rows = [
+      row({ id: "x1", merchantName: "Xfinity", personalFinanceCategory: "RENT_AND_UTILITIES", personalFinanceCategoryDetail: "RENT_AND_UTILITIES_INTERNET_AND_CABLE", date: new Date("2026-01-08"), amount: 69.99 }),
+      row({ id: "x2", merchantName: "Xfinity", personalFinanceCategory: "RENT_AND_UTILITIES", personalFinanceCategoryDetail: "RENT_AND_UTILITIES_INTERNET_AND_CABLE", date: new Date("2026-02-08"), amount: 69.99 }),
+      row({ id: "x3", merchantName: "Xfinity", personalFinanceCategory: "RENT_AND_UTILITIES", personalFinanceCategoryDetail: "RENT_AND_UTILITIES_INTERNET_AND_CABLE", date: new Date("2026-03-08"), amount: 69.99 }),
+    ];
+    expect(computeRecurringIds(rows)).toEqual(new Set(["x1", "x2", "x3"]));
+  });
+
+  it("keeps flagging rent-category rows that have no detailed category yet", () => {
+    // Pre-backfill rows only have the primary column; the narrowing can't
+    // apply to them, and silently dropping them would be worse than the
+    // status quo.
+    const rows = [
+      row({ id: "o1", merchantName: "Greenfield Apartments", personalFinanceCategory: "RENT_AND_UTILITIES", date: new Date("2026-01-01"), amount: 1750 }),
+      row({ id: "o2", merchantName: "Greenfield Apartments", personalFinanceCategory: "RENT_AND_UTILITIES", date: new Date("2026-02-01"), amount: 1750 }),
+      row({ id: "o3", merchantName: "Greenfield Apartments", personalFinanceCategory: "RENT_AND_UTILITIES", date: new Date("2026-03-01"), amount: 1750 }),
+    ];
+    expect(computeRecurringIds(rows)).toEqual(new Set(["o1", "o2", "o3"]));
+  });
+
   it("does not flag a same-cadence, same-amount purchase in an ineligible category (Starbucks-style)", () => {
     const rows = [
       row({ id: "s1", merchantName: "Starbucks", personalFinanceCategory: "FOOD_AND_DRINK", date: new Date("2026-01-05"), amount: 6.5 }),

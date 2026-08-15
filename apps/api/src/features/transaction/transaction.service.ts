@@ -146,6 +146,22 @@ const SUBSCRIPTION_ELIGIBLE_CATEGORIES = new Set([
   "PERSONAL_CARE",
 ]);
 
+// Detailed categories that pass the primary gate above but aren't
+// subscriptions in any useful sense. Rent is the case that matters: it's the
+// most reliably monthly, identical-amount charge a person has, so it flags
+// every time — and because getDisplayCategory replaces a flagged row's
+// category with the SUBSCRIPTION sentinel, the rent line stops reading as
+// rent. Utilities in the same primary bucket (internet, phone) are left
+// eligible: those genuinely are subscriptions.
+//
+// This is checked against personalFinanceCategoryDetail, which unlike the
+// primary column can be null on rows synced before it was added. A null
+// detail falls through to the primary gate exactly as before, so this
+// narrows behavior for backfilled rows without changing it for old ones.
+const SUBSCRIPTION_EXCLUDED_DETAILED_CATEGORIES = new Set([
+  "RENT_AND_UTILITIES_RENT",
+]);
+
 // One row's worth of input to the recurring-detection heuristic. Deliberately
 // plain (amount: number, not Prisma.Decimal) so computeRecurringIds has no
 // dependency on Prisma and can be unit tested with hand-built fixtures — see
@@ -158,6 +174,8 @@ export interface RecurringCandidateRow {
   date: Date;
   amount: number;
   personalFinanceCategory: string | null;
+  /** Optional: null on rows synced before the detailed column existed. */
+  personalFinanceCategoryDetail?: string | null;
 }
 
 // Heuristic recurring/subscription detector: flags a transaction as
@@ -189,6 +207,14 @@ export function computeRecurringIds(rows: RecurringCandidateRow[]): Set<string> 
     // no matter how similar. Also gated on category: see
     // SUBSCRIPTION_ELIGIBLE_CATEGORIES above.
     if (!r.personalFinanceCategory || !SUBSCRIPTION_ELIGIBLE_CATEGORIES.has(r.personalFinanceCategory)) {
+      continue;
+    }
+    if (
+      r.personalFinanceCategoryDetail &&
+      SUBSCRIPTION_EXCLUDED_DETAILED_CATEGORIES.has(
+        r.personalFinanceCategoryDetail,
+      )
+    ) {
       continue;
     }
 
@@ -290,6 +316,7 @@ async function getRecurringTransactionIds(userId: string): Promise<Set<string>> 
       date: true,
       amount: true,
       personalFinanceCategory: true,
+      personalFinanceCategoryDetail: true,
     },
   });
 
