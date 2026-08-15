@@ -439,8 +439,8 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col gap-5">
       {/* filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
           <MultiSelectDropdown
             label="Account"
             values={selectedAccountIds}
@@ -449,13 +449,13 @@ export default function Dashboard() {
               setFilters({ accountId: values.length ? values : null })
             }
             allLabel="All Accounts"
-            className="w-48"
+            className="col-span-2 sm:w-48"
           />
           <DateRangeControl
             label="Time frame"
             value={dateValue}
             onChange={handleDateChange}
-            className="w-56"
+            className="w-full sm:w-56"
           />
           <CategoryFilterDropdown
             label="Categories"
@@ -465,14 +465,14 @@ export default function Dashboard() {
               setFilters({ category: values.length ? values : null })
             }
             allLabel="All Categories"
-            className="w-44"
+            className="w-full sm:w-44"
           />
           {dashboardFilterActive && (
             <button
               type="button"
               onClick={clearFilters}
               title="Reset to the default view"
-              className="flex items-center gap-1.5 self-stretch rounded-xl border border-brand-border-subtle px-4 text-sm font-medium text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text"
+              className="col-span-2 flex items-center justify-center gap-1.5 rounded-xl border border-brand-border-subtle px-4 py-2.5 text-sm font-medium text-brand-text-secondary transition-colors duration-150 hover:border-brand-border hover:text-brand-text sm:justify-start sm:self-stretch sm:py-0"
             >
               Clear filters
               <span className="text-base leading-none">×</span>
@@ -500,7 +500,7 @@ export default function Dashboard() {
       </div>
 
       {/* summary strip */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <p className="text-xs tracking-wide text-brand-text-secondary uppercase">
             Spending
@@ -549,7 +549,7 @@ export default function Dashboard() {
       </div>
 
       {/* charts */}
-      <div className="grid grid-cols-[1.6fr_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
         <div className="rounded-xl border border-brand-border bg-brand-surface p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-brand-text">
@@ -597,8 +597,8 @@ export default function Dashboard() {
                   axisLine={false}
                   tick={{ fill: "#777777", fontSize: 11 }}
                   tickFormatter={shortDate}
-                  interval={Math.max(0, Math.ceil(chartData.length / 8) - 1)}
-                  minTickGap={12}
+                  interval="preserveStartEnd"
+                  minTickGap={28}
                 />
                 <YAxis
                   tickLine={false}
@@ -690,7 +690,7 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
                 {donutData.map((d) => {
                   const active =
                     d.keys.length > 0 &&
@@ -766,22 +766,22 @@ export default function Dashboard() {
                   selectedId === t.id ? "bg-brand-surface-raised" : ""
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-surface-raised text-sm font-medium text-brand-text-secondary">
                     {label.charAt(0).toUpperCase()}
                   </span>
-                  <div>
-                    <p className="text-sm font-medium text-brand-text">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-brand-text">
                       {label}
                     </p>
-                    <p className="text-xs text-brand-text-secondary">
+                    <p className="truncate text-xs text-brand-text-secondary">
                       {getTransactionCategoryLabel(getEffectiveCategory(t))} ·{" "}
                       {shortDate(new Date(t.date).toISOString().slice(0, 10))}
                     </p>
                   </div>
                 </div>
                 <span
-                  className={`text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-error"}`}
+                  className={`ml-3 shrink-0 text-sm font-semibold ${isIncome ? "text-brand-green" : "text-brand-error"}`}
                 >
                   {isIncome ? "+" : "-"}
                   {formatMoney(Math.abs(amount))}

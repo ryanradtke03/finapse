@@ -48,11 +48,11 @@ export function DeleteAccountModal({
   return (
     <div
       onClick={submitting ? undefined : onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-96 rounded-2xl border border-brand-error/40 bg-brand-surface p-6 shadow-2xl"
+        className="max-h-[90vh] w-full max-w-96 overflow-y-auto rounded-2xl border border-brand-error/40 bg-brand-surface p-6 shadow-2xl"
       >
         <h3 className="text-lg font-semibold text-brand-error">Delete account</h3>
         <p className="mt-2 text-sm text-brand-text-secondary">
