@@ -8,7 +8,10 @@ import { Decimal } from "@prisma/client/runtime/client";
 import bcrypt from "bcrypt";
 import { Products } from "plaid";
 import { prisma } from "../src/db/prisma";
-import { syncTransactions } from "../src/features/plaid/plaid.service";
+import {
+  deletePlaidItem,
+  syncTransactions,
+} from "../src/features/plaid/plaid.service";
 import { encrypt } from "../src/lib/encryption";
 import { plaidClient } from "../src/lib/plaidClient";
 
@@ -34,11 +37,85 @@ const SANDBOX_INSTITUTION_NAME = "First Platypus Bank";
 // Transactions page has depth and recurring detection has enough repetitions).
 const HISTORY_DAYS = 130;
 
-// Believable balances so the Total Balance / net-worth cards read sensibly
-// alongside the generated cash flow (Plaid's Sandbox balances are tiny/random).
-const CHECKING_BALANCE = "8452.30";
-const SAVINGS_BALANCE = "12680.00";
-const CREDIT_BALANCE = "1240.55"; // owed on the card (a liability)
+// ── the demo persona's accounts ─────────────────────────────────────────────
+// Plaid's default Sandbox user (`user_good`) hands back twelve accounts — CD,
+// money market, IRA, 401k, HSA, mortgage, student loan, business card. That
+// reads like a full balance sheet, not like the person Finapse is built for:
+// someone in their late 20s or 30s who banks with a debit card and one credit
+// card. It also buries the everyday cash flow the dashboard is about.
+//
+// So the Item is minted as a *custom* Sandbox user instead — `user_custom`
+// with the JSON config below passed as the password, which is Plaid's
+// documented way to state exactly which accounts an Item has. Balances live in
+// that config too, so Plaid itself is the source of truth for them: a visitor
+// hitting "Sync now" no longer reverts the demo to Sandbox's random $110
+// checking balance.
+type DemoAccount = {
+  type: "depository" | "credit";
+  subtype: "checking" | "savings" | "credit card";
+  name: string;
+  officialName: string;
+  mask: string;
+  /** Decimal string. For the card this is the amount owed (a liability). */
+  balance: string;
+  /** Credit limit, cards only — drives the available-credit figure. */
+  limit?: string;
+};
+
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    type: "depository",
+    subtype: "checking",
+    name: "Everyday Checking",
+    officialName: "Platypus Everyday Checking",
+    mask: "1111",
+    balance: "8452.30",
+  },
+  {
+    type: "depository",
+    subtype: "savings",
+    name: "Rainy Day Savings",
+    officialName: "Platypus High-Yield Savings",
+    mask: "2222",
+    balance: "12680.00",
+  },
+  {
+    type: "credit",
+    subtype: "credit card",
+    name: "Platypus Rewards Card",
+    officialName: "Platypus Cash Rewards Visa",
+    mask: "3333",
+    balance: "1240.55",
+    limit: "5000",
+  },
+];
+
+function demoBalance(subtype: DemoAccount["subtype"]): Decimal {
+  const account = DEMO_ACCOUNTS.find((a) => a.subtype === subtype);
+  if (!account) throw new Error(`no demo account configured for ${subtype}`);
+  return new Decimal(account.balance);
+}
+
+/** Plaid custom Sandbox user config — see /docs/sandbox/user-custom. */
+function buildSandboxUserConfig() {
+  return {
+    seed: "finapse-demo-persona-v1",
+    override_accounts: DEMO_ACCOUNTS.map((a) => ({
+      type: a.type,
+      subtype: a.subtype,
+      starting_balance: Number(a.balance),
+      meta: {
+        name: a.name,
+        official_name: a.officialName,
+        mask: a.mask,
+        ...(a.limit ? { limit: Number(a.limit) } : {}),
+      },
+      // No Plaid-side transactions on purpose: Sandbox's own history is sparse
+      // and off-persona, and the synthetic history below replaces it anyway.
+      transactions: [],
+    })),
+  };
+}
 
 // Primary-level budgets for the current month, sized against the generated
 // spend to show a realistic spread — some comfortably under, a couple at-risk.
@@ -82,13 +159,6 @@ async function seedDemoUser(): Promise<string> {
 }
 
 async function connectSandboxBank(userId: string): Promise<void> {
-  // Idempotent: if the demo user already has a bank, don't stack another.
-  const existing = await prisma.plaidItem.findFirst({ where: { userId } });
-  if (existing) {
-    console.log("[seed] demo user already has a Plaid item — skipping connect");
-    return;
-  }
-
   if (!process.env.PLAID_CLIENT_ID) {
     console.warn(
       "[seed] PLAID_CLIENT_ID not set — seeding the demo user without bank data.",
@@ -96,10 +166,21 @@ async function connectSandboxBank(userId: string): Promise<void> {
     return;
   }
 
-  // 1. Mint a Sandbox item directly (no Link UI needed).
+  // 1. Mint a Sandbox item directly (no Link UI needed), as a custom user so
+  //    the Item has exactly the persona's three accounts.
+  //
+  //    Note this re-links on every run instead of skipping when an Item
+  //    already exists. The account lineup is fixed at Item creation, so an Item
+  //    minted by an older seed keeps its twelve accounts forever — a redeploy
+  //    would never heal it. Re-minting is free in Sandbox and gives the nightly
+  //    reset a genuinely clean slate.
   const { data: created } = await plaidClient.sandboxPublicTokenCreate({
     institution_id: SANDBOX_INSTITUTION_ID,
     initial_products: [Products.Transactions],
+    options: {
+      override_username: "user_custom",
+      override_password: JSON.stringify(buildSandboxUserConfig()),
+    },
   });
 
   // 2. Exchange the public token for a permanent access token.
@@ -107,7 +188,25 @@ async function connectSandboxBank(userId: string): Promise<void> {
     public_token: created.public_token,
   });
 
-  // 3. Store the item (access token encrypted at rest, like the real flow).
+  // 3. Only now that the replacement is in hand, drop the old Item(s) — if
+  //    Plaid had failed above, the demo would still have its existing bank.
+  //    Transactions and accounts cascade with the item.
+  const stale = await prisma.plaidItem.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+  for (const item of stale) {
+    try {
+      await deletePlaidItem(userId, item.id);
+    } catch (err) {
+      // e.g. a rotated ENCRYPTION_KEY makes the stored token undecryptable.
+      console.warn(`[seed] clean removal of item ${item.id} failed:`, err);
+      await prisma.plaidItem.delete({ where: { id: item.id } });
+    }
+    console.log(`[seed] removed stale Plaid item ${item.id}`);
+  }
+
+  // 4. Store the item (access token encrypted at rest, like the real flow).
   const item = await prisma.plaidItem.create({
     data: {
       userId,
@@ -119,9 +218,9 @@ async function connectSandboxBank(userId: string): Promise<void> {
     },
   });
 
-  // 4. Pull the real accounts (source of truth) through the sync path. We keep
-  //    the accounts (real Plaid IDs, balances, institution logo) but overwrite
-  //    the sparse Sandbox transactions with our synthetic history below.
+  // 5. Pull the accounts (source of truth) through the sync path. We keep the
+  //    accounts — real Plaid IDs, the balances configured above, institution
+  //    logo — and layer the synthetic transaction history on below.
   const result = await syncTransactions(userId, item.id);
   console.log(`[seed] connected ${SANDBOX_INSTITUTION_NAME} and synced`, result);
 }
@@ -265,29 +364,32 @@ async function seedDemoData(userId: string): Promise<void> {
   });
   if (deleted.count) console.log(`[seed] cleared ${deleted.count} existing transactions`);
 
-  // Believable balances.
+  // Balances are already configured on the Plaid side (see DEMO_ACCOUNTS), so
+  // this is belt-and-braces — it keeps the demo correct if the Item predates
+  // that config, and both paths read the same constants so they can't drift.
   await prisma.account.update({
     where: { id: checking.id },
     data: {
-      balanceCurrent: new Decimal(CHECKING_BALANCE),
-      balanceAvailable: new Decimal(CHECKING_BALANCE),
+      balanceCurrent: demoBalance("checking"),
+      balanceAvailable: demoBalance("checking"),
     },
   });
   if (savings) {
     await prisma.account.update({
       where: { id: savings.id },
       data: {
-        balanceCurrent: new Decimal(SAVINGS_BALANCE),
-        balanceAvailable: new Decimal(SAVINGS_BALANCE),
+        balanceCurrent: demoBalance("savings"),
+        balanceAvailable: demoBalance("savings"),
       },
     });
   }
   if (credit.id !== checking.id) {
     await prisma.account.update({
       where: { id: credit.id },
+      // balanceAvailable is left alone: with a limit in the config Plaid
+      // returns real available credit (limit − owed), which beats nulling it.
       data: {
-        balanceCurrent: new Decimal(CREDIT_BALANCE),
-        balanceAvailable: null,
+        balanceCurrent: demoBalance("credit card"),
       },
     });
   }

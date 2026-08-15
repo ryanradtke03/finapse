@@ -11,6 +11,7 @@ import {
   applyMerchantRulesForUser,
   invalidateRecurringCache,
 } from "../transaction/transaction.service";
+import { filterSupportedAccounts, isSupportedAccount } from "./plaid.accounts";
 
 // ─────────────────────────────────────────
 // createLinkToken — new bank connection
@@ -191,9 +192,18 @@ export async function exchangePublicToken({
         throw err;
       }
 
-      console.log("[exchange] upserting all accounts returned by Plaid");
+      const supportedAccounts = filterSupportedAccounts(
+        accountsRes.data.accounts,
+        "exchange",
+      );
 
-      for (const acc of accountsRes.data.accounts) {
+      console.log(
+        "[exchange] upserting",
+        supportedAccounts.length,
+        "supported accounts returned by Plaid",
+      );
+
+      for (const acc of supportedAccounts) {
         console.log("[exchange] upserting", acc.account_id, acc.name);
         try {
           await prisma.account.upsert({
@@ -290,9 +300,14 @@ export async function exchangePublicToken({
     throw err;
   }
 
+  const supportedNewAccounts = filterSupportedAccounts(
+    accountsRes.data.accounts,
+    "exchange",
+  );
+
   try {
     await prisma.account.createMany({
-      data: accountsRes.data.accounts.map((a) => ({
+      data: supportedNewAccounts.map((a) => ({
         plaidAccountId: a.account_id,
         name: a.name,
         officialName: a.official_name ?? null,
@@ -307,7 +322,7 @@ export async function exchangePublicToken({
     });
     console.log(
       "[exchange] accounts stored for new item",
-      accountsRes.data.accounts.length,
+      supportedNewAccounts.length,
     );
   } catch (err) {
     console.error("[exchange] account createMany FAILED", err);
@@ -416,11 +431,16 @@ export async function syncTransactions(
   const accountsGetRes = await plaidClient.accountsGet({
     access_token: accessToken,
   });
-  const allAccounts = accountsGetRes.data.accounts;
+  const allAccounts = filterSupportedAccounts(
+    accountsGetRes.data.accounts,
+    "sync",
+  );
   console.log(
     "[sync] accountsGet returned",
+    accountsGetRes.data.accounts.length,
+    "accounts,",
     allAccounts.length,
-    "accounts",
+    "supported",
     allAccounts.map((a) => ({
       account_id: a.account_id,
       name: a.name,
@@ -467,6 +487,33 @@ export async function syncTransactions(
       console.log("[sync] account upsert ok", acc.account_id);
     }
     console.log("[sync] step 1 done");
+
+    // 1b. Prune accounts that were stored before the allowlist existed, so an
+    // older connection heals itself on its next sync instead of needing a
+    // relink. Their transactions cascade with them.
+    const storedAccounts = await tx.account.findMany({
+      where: { plaidItemId: item.id },
+      select: { id: true, name: true, type: true, subtype: true },
+    });
+    const unsupportedStored = storedAccounts.filter(
+      (a) => !isSupportedAccount(a),
+    );
+    if (unsupportedStored.length > 0) {
+      console.log(
+        "[sync] step 1b — pruning",
+        unsupportedStored.length,
+        "unsupported stored accounts",
+        unsupportedStored.map((a) => ({
+          name: a.name,
+          type: a.type,
+          subtype: a.subtype,
+        })),
+      );
+      await tx.account.deleteMany({
+        where: { id: { in: unsupportedStored.map((a) => a.id) } },
+      });
+      console.log("[sync] step 1b done");
+    }
 
     // 2. Upsert added transactions
     console.log(

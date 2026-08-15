@@ -66,8 +66,35 @@ It idempotently creates:
 
 - A pre-verified user — **`demo@finapse.com` / `demo1234`** (`emailVerified: true`,
   which is required because Plaid connections are gated behind email verification).
-- A connected Plaid Sandbox bank (First Platypus Bank) with synced transactions.
+- A connected Plaid Sandbox bank (First Platypus Bank) with exactly three
+  accounts — Everyday Checking, Rainy Day Savings and one credit card — plus a
+  synthetic ~4-month transaction history.
 - A handful of monthly budgets so the Budgets page isn't empty.
+
+### Why three accounts
+
+Plaid's default Sandbox user (`user_good`) returns twelve: CD, money market,
+IRA, 401k, HSA, mortgage, student loan, business card and friends. Finapse has
+no UI or maths for any of them — they just inflate Total Balance and bury the
+everyday cash flow the dashboard is about — and they don't match the person the
+demo is meant to show: late-20s/30s, one debit card and one credit card.
+
+Two things keep them out:
+
+1. **The seed mints the Item as a custom Sandbox user.** `DEMO_ACCOUNTS` in
+   `prisma/seed.ts` is serialized into Plaid's [custom user config](https://plaid.com/docs/sandbox/user-custom/)
+   and passed as `override_username: "user_custom"` + `override_password: <json>`.
+   Balances live in that config, so Plaid is the source of truth for them and a
+   visitor pressing "Sync now" can't revert the demo to Sandbox's random $110
+   checking balance. Because an Item's account lineup is fixed at creation, the
+   seed **removes and re-mints** the Item on every run rather than skipping when
+   one already exists — otherwise a redeploy would never heal an old Item.
+2. **A subtype allowlist at the Plaid boundary.** `plaid.accounts.ts` lists
+   what the app models (`depository/checking`, `depository/savings`,
+   `credit/credit card`); anything else is dropped in `exchangePublicToken` and
+   `syncTransactions` before it reaches the DB. This covers visitors who link
+   their own Sandbox bank with `user_good`, and it prunes off-persona accounts
+   that an older build already stored, so legacy connections heal on next sync.
 
 On the login screen, the **"Try the demo — no signup"** button logs straight in
 with these credentials, so visitors never have to type them.
@@ -128,8 +155,15 @@ static frontend with the demo env baked in.
 Notes:
 
 - Render's free tier sleeps after ~15 min idle, so the first request is slow.
-- The demo account is **shared** — all visitors see and edit the same data. A
-  nightly re-seed/reset is recommended to keep it clean (not yet automated).
+- The demo account is **shared** — all visitors see and edit the same data.
+  `.github/workflows/demo-reset.yml` resets it nightly for free: it POSTs to
+  `finapse-api`'s Render **Deploy Hook**, which triggers a redeploy, and the
+  API's `buildCommand` already runs `npm run db:seed` on every deploy (seeding
+  is idempotent — it wipes and regenerates visitor edits). Set it up once:
+  Render dashboard → `finapse-api` → Settings → Deploy Hook → copy the URL →
+  add it as the `RENDER_DEPLOY_HOOK_URL` secret in the GitHub repo's Settings →
+  Secrets and variables → Actions. (A dedicated Render Cron Job would also
+  work but has no free tier — this reuses the free web service instead.)
 
 ---
 
